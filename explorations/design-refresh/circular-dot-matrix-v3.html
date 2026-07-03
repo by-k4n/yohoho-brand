@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yohoho — v3 voice bloom · circles vs squares (#14)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@400;600;800&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0c10;--panel:#0E1116;--cyan:#39BFC6;--ink:#cdd6da;--muted:#6b7680}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 28px 80px}
+  header{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-bottom:6px}
+  .word{font-family:Doto,monospace;font-weight:800;font-size:34px;letter-spacing:2px;color:var(--cyan)}
+  h1{font-size:15px;font-weight:500;color:var(--muted);margin:0}
+  .sub{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:800px;margin:14px 0 22px}
+  .sub b{color:var(--ink);font-weight:600}
+  .controls{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+  button{font-family:'JetBrains Mono',monospace;font-size:12.5px;background:#12161c;color:var(--ink);border:1px solid #232a31;border-radius:8px;padding:8px 14px;cursor:pointer;transition:.15s}
+  button:hover{border-color:var(--cyan)} button.on{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 0 1px var(--cyan) inset}
+  button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  .hint{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted)}
+  #micnote{display:none;color:#ff5454;font-size:12px;font-family:'JetBrains Mono',monospace;margin:-4px 0 18px}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:22px}
+  @media(max-width:720px){.grid{grid-template-columns:1fr}}
+  .card{display:flex;flex-direction:column;gap:10px}
+  .stage{aspect-ratio:1/1;width:100%;background:radial-gradient(120% 120% at 50% 50%, #141922 0%, var(--panel) 58%, #080a0e 100%);border-radius:18px;position:relative;overflow:hidden;border:1px solid #161b22}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .lab{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink)}
+  .gatewrap{max-width:380px;margin:18px 0 0;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:10px}
+  .gatewrap input[type=range]{flex:1;accent-color:var(--cyan)}
+  footer{margin-top:30px;color:var(--muted);font-size:12px;font-family:'JetBrains Mono',monospace;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><span class="word">yohoho</span><h1>v3 voice bloom — circles vs squares · backlog #14</h1></header>
+  <p class="sub">No recording dot. A <b>noise gate</b> ignores quiet/ambient sound — below the threshold it
+    sits idle as a <b>random twinkle</b>; cross it and the ring <b>blooms</b> (highs top, lows bottom), holding
+    briefly between words. Dots' <b>max size reduced ~25%</b>. Two takes on the dot shape — pick one.</p>
+  <div class="controls">
+    <button id="mic">🎤 use my mic</button>
+    <button id="speak" class="on">● synthetic</button><button id="quiet">○ quiet</button>
+    <span class="hint">click “use my mic”, allow, then speak</span>
+  </div>
+  <p id="micnote">Mic needs a secure origin — open at <b>http://localhost:8777/circular-dot-matrix-v3.html</b>, then click “use my mic”.</p>
+  <div class="grid">
+    <div class="card"><div class="stage"><canvas id="cvA"></canvas></div><div class="lab">● circles</div></div>
+    <div class="card"><div class="stage"><canvas id="cvB"></canvas></div><div class="lab">■ squares</div></div>
+  </div>
+  <div class="gatewrap"><span>noise&nbsp;gate</span><input id="gate" type="range" min="0" max="100" value="22"><span id="gateval">0.15</span></div>
+  <footer>no REC dot · gate default 0.15 (adjustable) · idle = random twinkle · dots max −25% · v2 geometry</footer>
+</div>
+
+<script>
+const REDUCED=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const CY=[57,191,198], CYH=[168,238,242];
+const mix=(a,b,t)=>`rgb(${Math.round(a[0]+(b[0]-a[0])*t)},${Math.round(a[1]+(b[1]-a[1])*t)},${Math.round(a[2]+(b[2]-a[2])*t)})`;
+
+// ---- audio ----
+let speaking=true, useMic=false, analyser=null, freqData=null, sampleRate=48000;
+const sb=document.getElementById('speak'),qb=document.getElementById('quiet'),micBtn=document.getElementById('mic');
+sb.onclick=()=>{speaking=true;sb.classList.add('on');qb.classList.remove('on')};
+qb.onclick=()=>{speaking=false;qb.classList.add('on');sb.classList.remove('on')};
+micBtn.onclick=async()=>{
+  if(useMic){useMic=false;micBtn.classList.remove('on');micBtn.textContent='🎤 use my mic';return;}
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:false}});
+    const AC=window.AudioContext||window.webkitAudioContext, ac=new AC(); await ac.resume(); sampleRate=ac.sampleRate;
+    const src=ac.createMediaStreamSource(stream);
+    analyser=ac.createAnalyser(); analyser.fftSize=2048; analyser.smoothingTimeConstant=0.5;
+    freqData=new Uint8Array(analyser.frequencyBinCount); src.connect(analyser);
+    useMic=true; micBtn.classList.add('on'); micBtn.textContent='🎤 mic on — speak';
+  }catch(e){ document.getElementById('micnote').style.display='block'; micBtn.textContent='🎤 mic blocked'; }
+};
+function bandEnergy(frac,t){
+  if(useMic && analyser){const hz=80*Math.pow(6000/80,frac), binHz=sampleRate/analyser.fftSize;
+    const i=Math.max(1,Math.min(freqData.length-1,Math.round(hz/binHz))); return Math.min(1,(freqData[i]/255)*(1+frac*1.8));}
+  if(!speaking) return 0;
+  const f1=Math.exp(-((frac-0.16-0.04*Math.sin(t*1.7))**2)/0.018);
+  const f2=Math.exp(-((frac-0.46-0.07*Math.sin(t*2.3+1))**2)/0.03);
+  const f3=Math.exp(-((frac-0.8)**2)/0.05)*Math.max(0,Math.sin(t*8))*0.7;
+  const burst=Math.max(0,Math.sin(t*6.1))*Math.max(0,Math.sin(t*2.0+1))**2;
+  return Math.min(1,(0.12+0.9*burst)*(f1*0.9+f2*0.8+f3));
+}
+function voiceLevel(t){
+  if(useMic && analyser){const binHz=sampleRate/analyser.fftSize; let s=0,n=0;
+    for(let hz=200;hz<=3000;hz+=binHz){s+=freqData[Math.round(hz/binHz)];n++;} return Math.min(1,(s/n/255)*1.5);}
+  if(!speaking) return 0;
+  const burst=Math.max(0,Math.sin(t*6.1))*Math.max(0,Math.sin(t*2.0+1))**2; return Math.min(1,0.04+burst*1.05);
+}
+
+// ---- noise gate ----
+const gateEl=document.getElementById('gate'), gateValEl=document.getElementById('gateval');
+let gateOpen=false, hold=0, activeMix=0;
+function tuned(){const v=gateEl.value/100; const open=0.04+v*0.5; return {open,close:open*0.62};}
+function updateGate(vl,dt){const T=tuned(); gateValEl.textContent=T.open.toFixed(2);
+  if(vl>T.open){gateOpen=true;hold=0.45;} else if(gateOpen){if(vl<T.close){hold-=dt;if(hold<=0)gateOpen=false;}else hold=0.45;}
+  const tgt=gateOpen?1:0; activeMix+=(tgt-activeMix)*(tgt>activeMix?0.4:0.06);}
+
+// ---- disc (v2 geometry; dot max swell reduced ~25%) ----
+const N=24, NR=4;
+function makeDisc(S){const cx=S/2,cy=S/2,half=S*0.5;
+  return {cx,cy,half,r:[half*0.40,half*0.49,half*0.58,half*0.67],base:S*0.0092,
+    boost:[1.11,1.41,1.75,2.12],     // was [1.15,1.55,2.0,2.5] — peak swell ×0.75 (outer −25%, rest scaled)
+    spokes:Array.from({length:N},(_,k)=>{const a=(k/N)*Math.PI*2-Math.PI/2;return{cos:Math.cos(a),sin:Math.sin(a)};})};}
+function xy(disc,k,i){const s=disc.spokes[k];return[disc.cx+s.cos*disc.r[i],disc.cy+s.sin*disc.r[i]];}
+function shapeDot(ctx,x,y,rad,col,alpha,glow,square){
+  if(glow){ctx.shadowColor=col;ctx.shadowBlur=glow}else ctx.shadowBlur=0;
+  ctx.globalAlpha=alpha;ctx.fillStyle=col;
+  if(square){const s=rad*1.78; ctx.fillRect(x-s/2,y-s/2,s,s);}    // equal-area square
+  else{ctx.beginPath();ctx.arc(x,y,rad,0,7);ctx.fill();}
+  ctx.globalAlpha=1;ctx.shadowBlur=0;
+}
+
+// ---- idle twinkle seed ----
+const tw=[]; for(let c=0;c<N*NR;c++){const star=Math.random()<0.22;
+  tw.push({ph:Math.random()*6.28, sp:0.7+Math.random()*2.2, amp:star?0.6+Math.random()*0.4:0.10+Math.random()*0.16});}
+const twinkle=(k,i,t)=>{const c=tw[k*NR+i];return c.amp*Math.pow(Math.max(0,Math.sin(t*c.sp+c.ph)),5);};
+
+// ---- render both panels from shared state ----
+const A={cv:document.getElementById('cvA'),square:false}, B={cv:document.getElementById('cvB'),square:true};
+A.ctx=A.cv.getContext('2d'); B.ctx=B.cv.getContext('2d');
+const lvl=new Float32Array(N);
+function resize(){const dpr=Math.min(2,devicePixelRatio||1);
+  for(const P of [A,B]){const r=P.cv.getBoundingClientRect();const S=Math.max(1,Math.round(r.width));
+    P.cv.width=S*dpr;P.cv.height=S*dpr;P.ctx.setTransform(dpr,0,0,dpr,0,0);P.S=S;P.disc=makeDisc(S);}}
+addEventListener('resize',resize);resize();
+
+function drawPanel(P,t){
+  const ctx=P.ctx, disc=P.disc; ctx.clearRect(0,0,P.S,P.S);
+  for(let k=0;k<N;k++)for(let i=0;i<NR;i++){const[x,y]=xy(disc,k,i);shapeDot(ctx,x,y,disc.base,'#262c34',1,0,P.square);}
+  for(let k=0;k<N;k++){const h=lvl[k]*NR;
+    for(let i=0;i<NR;i++){
+      const aBloom=Math.max(0,Math.min(1,h-i))*activeMix, aTw=twinkle(k,i,t)*(1-activeMix);
+      const b=Math.max(aBloom,aTw); if(b<=0.03) continue;
+      const[x,y]=xy(disc,k,i), rad=disc.base*(1+(disc.boost[i]-1)*aBloom);
+      shapeDot(ctx,x,y,rad, mix(CY,CYH,b*b), 0.28+0.72*b, (i>=2&&aBloom>0.55)?7*aBloom:0, P.square);
+    }}
+}
+function frame(ms){const t=ms/1000, dt=1/60;
+  if(useMic && analyser) analyser.getByteFrequencyData(freqData);
+  updateGate(voiceLevel(t),dt);
+  for(let k=0;k<N;k++){const fold=1-Math.min(k,N-k)/(N/2); lvl[k]+=(bandEnergy(fold,t)-lvl[k])*(useMic?0.5:0.34);}
+  drawPanel(A,t); drawPanel(B,t);
+  if(!REDUCED) requestAnimationFrame(frame);
+}
+if(REDUCED){updateGate(0.6,1);for(let k=0;k<N;k++)lvl[k]=bandEnergy(1-Math.min(k,N-k)/(N/2),1.2);drawPanel(A,1.2);drawPanel(B,1.2);}
+else requestAnimationFrame(frame);
+</script>
+</body>
+</html>

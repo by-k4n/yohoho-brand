@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yohoho — done animations (dot matrix) · #14</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0c10;--panel:#0E1116;--cyan:#39BFC6;--ink:#cdd6da;--muted:#6b7680}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 28px 80px}
+  header{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-bottom:6px}
+  .word{font-family:Doto,monospace;font-weight:800;font-size:34px;letter-spacing:2px;color:var(--cyan)}
+  h1{font-size:15px;font-weight:500;color:var(--muted);margin:0}
+  .sub{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:860px;margin:14px 0 18px}
+  .sub b{color:var(--ink);font-weight:600}
+  .controls{display:flex;gap:10px;align-items:center;margin:0 0 22px;flex-wrap:wrap}
+  button{font-family:'JetBrains Mono',monospace;font-size:12px;background:#12161c;color:var(--ink);border:1px solid #232a31;border-radius:8px;padding:8px 13px;cursor:pointer;transition:.15s}
+  button:hover{border-color:var(--cyan)} button.on{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 0 1px var(--cyan) inset}
+  .row{display:flex;gap:26px;flex-wrap:wrap}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:9px}
+  .tile{width:184px;height:184px;border-radius:26px;overflow:hidden;
+        background:radial-gradient(120% 120% at 50% 50%, #141922 0%, var(--panel) 58%, #080a0e 100%);border:1px solid #1b212a}
+  .tile canvas{width:100%;height:100%;display:block}
+  .name{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--ink)}
+  .desc{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted);max-width:184px;text-align:center;line-height:1.45}
+  footer{margin-top:28px;color:var(--muted);font-size:12px;font-family:'JetBrains Mono',monospace;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><span class="word">yohoho</span><h1>done — success animations, all dot-matrix · backlog #14</h1></header>
+  <p class="sub">Four <b>done</b> moments, each driven entirely by the ring's dots. They loop so you can watch.
+    Use <b>slow-mo</b> to study one, <b>↻ replay</b> to resync. Pick a favorite (or mix ideas) and I'll polish it.</p>
+  <div class="controls">
+    <button id="replay">↻ replay</button>
+    <button id="slow">slow-mo: off</button>
+    <span class="desc" style="max-width:none">cyan → white-hot flash on completion · same ring as v7</span>
+  </div>
+  <div class="row" id="row"></div>
+  <footer>all use the v7 ring dots · success = cyan filling/blooming + a brief HOT (#eafdff) flash, then settle/fade</footer>
+</div>
+
+<script>
+const PI=Math.PI, TAU=2*PI;
+const CY=[57,191,198], HOT=[234,253,255], LUM=[205,225,255];
+const COLS=28, DOTR=0.32, ANIM=1.5, CYCLE=2.4;   // seconds
+const lerp3=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+const rgb=c=>`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+const cl=x=>x<0?0:x>1?1:x;
+const easeOut=x=>1-(1-cl(x))**2, easeIn=x=>cl(x)*cl(x), bump=x=>Math.sin(cl(x)*PI);
+const $=id=>document.getElementById(id);
+
+function makeGrid(S){
+  const cx=S/2, cy=S/2, step=S/COLS, Rin=S*0.285, Rout=S*0.46, soft=step*0.7, dots=[];
+  const rowStep=step*0.866, rows=Math.ceil(S/rowStep)+1;
+  for(let gy=0;gy<rows;gy++){
+    const y=(gy+0.5)*rowStep, off=(gy&1)?step/2:0;
+    for(let gx=-1;gx<=COLS;gx++){
+      const x=(gx+0.5)*step+off; if(x<0||x>S) continue;
+      const dx=x-cx, dy=y-cy, d=Math.hypot(dx,dy);
+      if(d<Rin-soft || d>Rout+soft) continue;
+      const edge=Math.max(0,Math.min(1, Math.min((Rout+soft)-d, d-(Rin-soft))/step));
+      const ang=Math.atan2(dy,dx), ta=((ang+PI/2)%TAU+TAU)%TAU;
+      dots.push({x,y,edge,ta, bp:Math.max(0,Math.min(1,(d-Rin)/(Rout-Rin)))});
+    }
+  }
+  return {cx,cy,step,dots, dotR:step*DOTR};
+}
+function dotXY(ctx,x,y,er,col,b,pulse){
+  b=Math.min(1,b);
+  if(b<=0.045){ctx.globalAlpha=1;ctx.beginPath();ctx.arc(x,y,er,0,7);ctx.fillStyle='#23282f';ctx.fill();return;}
+  const lit=lerp3(col,LUM,b*0.32);
+  ctx.globalAlpha=0.18*b;ctx.beginPath();ctx.arc(x,y,er*1.8,0,7);ctx.fillStyle=rgb(col);ctx.fill();
+  ctx.globalAlpha=0.30+0.70*b;ctx.beginPath();ctx.arc(x,y,er*(1+(pulse||0)),0,7);ctx.fillStyle=rgb(lit);ctx.fill();
+  ctx.globalAlpha=1;
+}
+function dimRing(ctx,grid){const dr=grid.dotR;for(const o of grid.dots)dotXY(ctx,o.x,o.y,dr*o.edge,CY,0.08,0);}
+
+// ---------- animations: f(ctx,grid,S,p) with p in [0,1] ----------
+function aSweep(ctx,grid,S,p){
+  const dr=grid.dotR, head=easeOut(Math.min(1,p/0.6))*TAU;
+  const flash=p>0.6?bump((p-0.6)/0.2):0, fade=p>0.82?1-(p-0.82)/0.18:1;
+  const col=lerp3(CY,HOT,flash);
+  for(const o of grid.dots){
+    let b=0.08;
+    if(p<0.64){ if(o.ta<=head)b=0.85; const dd=head-o.ta; if(dd>=0&&dd<0.45)b=1; }
+    else b=0.85;
+    b=Math.max(b,flash)*fade;
+    dotXY(ctx,o.x,o.y,dr*o.edge,col,b,flash*0.45);
+  }
+}
+function aPulse(ctx,grid,S,p){
+  const dr=grid.dotR, wf=-0.25+easeOut(p)*1.7;
+  const flash=p>0.72?bump((p-0.72)/0.28):0, fade=p>0.85?1-(p-0.85)/0.15:1;
+  const col=lerp3(CY,HOT,flash);
+  for(const o of grid.dots){
+    const g=Math.exp(-((o.bp-wf)**2)/0.05);
+    let b=Math.max(0.08, g, flash*0.85)*fade;
+    dotXY(ctx,o.x,o.y,dr*o.edge,col,b,0.3*g);
+  }
+}
+function aCheck(ctx,grid,S,p){
+  const dr=grid.dotR;
+  const glow=p>0.7?bump((p-0.7)/0.3):0, fade=p>0.86?1-(p-0.86)/0.14:1;
+  for(const o of grid.dots) dotXY(ctx,o.x,o.y,dr*o.edge,CY,(0.07+glow*0.5)*fade, glow*0.3);
+  // checkmark path
+  const cx=S/2, cy=S*0.50, s=S*0.15;
+  const A={x:cx-s*1.05,y:cy+s*0.02}, B={x:cx-s*0.25,y:cy+s*0.72}, C={x:cx+s*1.2,y:cy-s*0.95};
+  const l1=Math.hypot(B.x-A.x,B.y-A.y), l2=Math.hypot(C.x-B.x,C.y-B.y), tot=l1+l2;
+  const drawn=easeOut(Math.min(1,p/0.66))*tot, gap=S*0.045, col=lerp3(CY,HOT,glow);
+  for(let s2=0;s2<=drawn;s2+=gap){
+    let x,y;
+    if(s2<=l1){const u=s2/l1;x=A.x+(B.x-A.x)*u;y=A.y+(B.y-A.y)*u;}
+    else{const u=(s2-l1)/l2;x=B.x+(C.x-B.x)*u;y=B.y+(C.y-B.y)*u;}
+    dotXY(ctx,x,y,dr*1.05,col,(1)*fade,0.25+glow*0.4);
+  }
+}
+function aConverge(ctx,grid,S,p){
+  const dr=grid.dotR, cx=S/2, cy=S/2;
+  let k; if(p<0.42)k=easeIn(p/0.42); else if(p<0.68)k=1-easeOut((p-0.42)/0.26); else k=0;
+  const flash=(p>0.42&&p<0.72)?bump((p-0.42)/0.30):0, fade=p>0.84?1-(p-0.84)/0.16:1;
+  const col=lerp3(CY,HOT,flash);
+  for(const o of grid.dots){
+    const x=o.x+(cx-o.x)*k, y=o.y+(cy-o.y)*k;
+    let b=(0.14+0.55*k+flash)*fade;
+    dotXY(ctx,x,y,dr*o.edge*(1-0.2*k),col,b,flash*0.4);
+  }
+}
+const ANIMS=[
+  {f:aSweep,   name:'sweep complete', desc:'head races round, fills the ring, closes with a flash'},
+  {f:aPulse,   name:'radial pulse',   desc:'a bright wave blooms inner → outer, peaks, settles'},
+  {f:aCheck,   name:'checkmark',      desc:'ring dims, a dot ✓ draws itself, then glows'},
+  {f:aConverge,name:'converge + burst',desc:'dots rush to a hot core, burst back to a full ring'},
+];
+
+const row=$('row'), tiles=[];
+for(const a of ANIMS){
+  const cell=document.createElement('div');cell.className='cell';
+  cell.innerHTML=`<div class="tile"><canvas></canvas></div><div class="name">${a.name}</div><div class="desc">${a.desc}</div>`;
+  row.appendChild(cell);const cv=cell.querySelector('canvas');
+  tiles.push({a,cv,ctx:cv.getContext('2d'),S:0,grid:null});
+}
+function resize(){const dpr=Math.min(2,devicePixelRatio||1);
+  for(const t of tiles){const b=t.cv.getBoundingClientRect();t.S=Math.round(b.width);
+    t.cv.width=t.S*dpr;t.cv.height=t.S*dpr;t.ctx.setTransform(dpr,0,0,dpr,0,0);t.grid=makeGrid(t.S);}}
+addEventListener('resize',resize);
+
+let slow=false, vt=0, last=0;
+$('slow').onclick=e=>{slow=!slow;e.target.classList.toggle('on',slow);e.target.textContent='slow-mo: '+(slow?'on':'off');};
+$('replay').onclick=()=>{vt=0;};
+function frame(ms){let dt=last?(ms-last)/1000:0;last=ms;if(dt>0.1)dt=0.1;vt+=dt*(slow?0.32:1);
+  const ph=vt%CYCLE, p=ph/ANIM;
+  for(const t of tiles){t.ctx.clearRect(0,0,t.S,t.S);
+    if(p>=1) dimRing(t.ctx,t.grid); else t.a.f(t.ctx,t.grid,t.S,p);}
+  requestAnimationFrame(frame);
+}
+resize();requestAnimationFrame(frame);
+</script>
+</body></html>

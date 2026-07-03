@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yohoho — modes: transcribing & error (ring vs type) · #14</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@400;600;800&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0c10;--panel:#0E1116;--cyan:#39BFC6;--ink:#cdd6da;--muted:#6b7680}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 28px 80px}
+  header{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-bottom:6px}
+  .word{font-family:Doto,monospace;font-weight:800;font-size:34px;letter-spacing:2px;color:var(--cyan)}
+  h1{font-size:15px;font-weight:500;color:var(--muted);margin:0}
+  .sub{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:860px;margin:14px 0 8px}
+  .sub b{color:var(--ink);font-weight:600}
+  .note{color:var(--muted);font-family:'JetBrains Mono',monospace;font-size:11px;margin:0 0 22px}
+
+  .group{margin:0 0 30px}
+  .ghdr{font-family:'JetBrains Mono',monospace;font-size:12.5px;color:var(--ink);margin:0 0 12px;letter-spacing:.5px}
+  .ghdr span{color:var(--muted)}
+  .pair{display:flex;gap:24px;flex-wrap:wrap}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:9px}
+  .tile{width:172px;height:172px;border-radius:24px;overflow:hidden;
+        background:radial-gradient(120% 120% at 50% 50%, #141922 0%, var(--panel) 58%, #080a0e 100%);border:1px solid #1b212a}
+  .tile canvas{width:100%;height:100%;display:block}
+  .name{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink)}
+  .desc{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted);max-width:172px;text-align:center;line-height:1.45}
+  footer{margin-top:14px;color:var(--muted);font-size:12px;font-family:'JetBrains Mono',monospace;line-height:1.7}
+  footer b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><span class="word">yohoho</span><h1>modes — transcribing &amp; error · ring vs type · backlog #14</h1></header>
+  <p class="sub">Two modes, each in <b>both languages</b>: <b>one morphing ring</b> (never leaves the circle) vs a
+    <b>type moment</b> (lettering takes over). Pick per mode — they don't have to match.</p>
+  <p class="note">shown at 172px for legibility · the real panel is ~104px, so type reads ~40% smaller than you see here</p>
+
+  <div class="group">
+    <div class="ghdr">TRANSCRIBING <span>· the model is working after you stop speaking</span></div>
+    <div class="pair">
+      <div class="cell"><div class="tile"><canvas id="t-ring"></canvas></div>
+        <div class="name">one ring — comet sweep</div><div class="desc">a bright arc orbits the ring · pure motion, no text</div></div>
+      <div class="cell"><div class="tile"><canvas id="t-type"></canvas></div>
+        <div class="name">type moment — label</div><div class="desc">“transcribing…” over a dimmed resting ring</div></div>
+    </div>
+  </div>
+
+  <div class="group">
+    <div class="ghdr">ERROR <span>· something failed (no mic / no permission / paste failed / …)</span></div>
+    <div class="pair">
+      <div class="cell"><div class="tile"><canvas id="e-ring"></canvas></div>
+        <div class="name">one ring — amber + glyph</div><div class="desc">ring turns amber &amp; pulses · a “!” in the center · iconic but doesn’t say which</div></div>
+      <div class="cell"><div class="tile"><canvas id="e-type"></canvas></div>
+        <div class="name">type moment — message</div><div class="desc">the actual reason, in amber · cycles through the messages</div></div>
+    </div>
+  </div>
+
+  <footer>ring = cohesive, wordless, scales to any size · type = explicit, but cramped at 104px (esp. “no permission”)<br>
+    tell me which you want per mode — and we’ll do cancelled / done / loading next</footer>
+</div>
+
+<script>
+const PI=Math.PI, TAU=2*PI;
+const C_CYAN=[57,191,198], C_AMBER=[245,166,35], LUM=[205,225,255];
+const COLS=28, DOTR=0.32;
+const lerp3=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+const rgb=c=>`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+const $=id=>document.getElementById(id);
+
+function makeGrid(S){
+  const cx=S/2, cy=S/2, step=S/COLS, Rin=S*0.285, Rout=S*0.46, soft=step*0.7, dots=[];
+  const rowStep=step*0.866, rows=Math.ceil(S/rowStep)+1;
+  for(let gy=0;gy<rows;gy++){
+    const y=(gy+0.5)*rowStep, off=(gy&1)?step/2:0;
+    for(let gx=-1;gx<=COLS;gx++){
+      const x=(gx+0.5)*step+off; if(x<0||x>S) continue;
+      const dx=x-cx, dy=y-cy, d=Math.hypot(dx,dy);
+      if(d<Rin-soft || d>Rout+soft) continue;
+      const edge=Math.max(0,Math.min(1, Math.min((Rout+soft)-d, d-(Rin-soft))/step));
+      const ang=Math.atan2(dy,dx), ta=((ang+PI/2)%TAU+TAU)%TAU;
+      dots.push({x,y,edge,ta, bp:Math.max(0,Math.min(1,(d-Rin)/(Rout-Rin))),
+        ph:Math.random()*6.28, sp:0.7+Math.random()*2.2});
+    }
+  }
+  return {cx,cy,step,dots, dotR:step*DOTR};
+}
+function dotDraw(ctx,o,dr,col,b,pulse){
+  const er=dr*o.edge;
+  if(b<=0.045){ctx.globalAlpha=1;ctx.beginPath();ctx.arc(o.x,o.y,er,0,7);ctx.fillStyle='#23282f';ctx.fill();return;}
+  const lit=lerp3(col,LUM,b*0.32);
+  ctx.globalAlpha=0.18*b;ctx.beginPath();ctx.arc(o.x,o.y,er*1.7,0,7);ctx.fillStyle=rgb(col);ctx.fill();
+  ctx.globalAlpha=0.30+0.70*Math.min(1,b);ctx.beginPath();ctx.arc(o.x,o.y,er*(1+(pulse||0)),0,7);ctx.fillStyle=rgb(lit);ctx.fill();
+  ctx.globalAlpha=1;
+}
+function rr(ctx,x,y,w,h,r){ctx.beginPath();ctx.moveTo(x+r,y);ctx.arcTo(x+w,y,x+w,y+h,r);ctx.arcTo(x+w,y+h,x,y+h,r);
+  ctx.arcTo(x,y+h,x,y,r);ctx.arcTo(x,y,x+w,y,r);ctx.closePath();}
+
+const cells=[];
+function mk(id){const cv=$(id),ctx=cv.getContext('2d');const c={cv,ctx,S:0,grid:null,id};cells.push(c);return c;}
+const tRing=mk('t-ring'), tType=mk('t-type'), eRing=mk('e-ring'), eType=mk('e-type');
+function resize(){const dpr=Math.min(2,devicePixelRatio||1);
+  for(const c of cells){const b=c.cv.getBoundingClientRect();c.S=Math.max(1,Math.round(b.width));
+    c.cv.width=c.S*dpr;c.cv.height=c.S*dpr;c.ctx.setTransform(dpr,0,0,dpr,0,0);c.grid=makeGrid(c.S);}}
+addEventListener('resize',resize);
+
+let now=0;
+// --- TRANSCRIBING: morphing ring (comet sweep) ---
+function drawTRing(c){const {ctx,grid,S}=c,dr=grid.dotR,t=now/1000;ctx.clearRect(0,0,S,S);
+  const head=(t*2.3)%TAU, tail=1.85;
+  for(const o of grid.dots){let da=((head-o.ta)%TAU+TAU)%TAU;
+    let b=da<tail?Math.pow(1-da/tail,1.4):0; b=Math.max(b,0.09);
+    dotDraw(ctx,o,dr,C_CYAN,b,0.0);}
+}
+// --- TRANSCRIBING: type moment ---
+function drawTType(c){const {ctx,grid,S}=c,dr=grid.dotR;ctx.clearRect(0,0,S,S);
+  for(const o of grid.dots) dotDraw(ctx,o,dr,C_CYAN,0.10,0);
+  ctx.globalAlpha=1;ctx.textAlign='center';ctx.textBaseline='middle';
+  ctx.fillStyle='#a8eef2';ctx.font=`500 ${Math.round(S*0.082)}px 'JetBrains Mono',monospace`;
+  ctx.fillText('transcribing',S/2,S/2-S*0.02);
+  const n=1+Math.floor(now/350)%3;
+  ctx.fillStyle='#5fd6dc';ctx.font=`600 ${Math.round(S*0.12)}px 'JetBrains Mono',monospace`;
+  ctx.fillText('.'.repeat(n),S/2,S/2+S*0.13);
+}
+// --- ERROR: morphing ring (amber + glyph) ---
+function drawERing(c){const {ctx,grid,S}=c,dr=grid.dotR,t=now/1000;ctx.clearRect(0,0,S,S);
+  const pulse=0.46+0.26*Math.sin(t*3.0);
+  for(const o of grid.dots) dotDraw(ctx,o,dr,C_AMBER, pulse*(0.45+0.55*o.bp), 0);
+  // '!' glyph centered in the hole
+  ctx.globalAlpha=1;ctx.fillStyle='#ffd98a';
+  const cx=S/2, w=S*0.05, top=S*0.355, bot=S*0.56;
+  rr(ctx,cx-w/2,top,w,bot-top,w*0.5);ctx.fill();
+  ctx.beginPath();ctx.arc(cx,S*0.645,w*0.62,0,7);ctx.fill();
+}
+// --- ERROR: type moment (cycling message) ---
+const MSGS=['no mic','no permission','paste failed','engine error','timed out'];
+function drawEType(c){const {ctx,grid,S}=c,dr=grid.dotR,t=now/1000;ctx.clearRect(0,0,S,S);
+  const pulse=0.12+0.05*Math.sin(t*2.4);
+  for(const o of grid.dots) dotDraw(ctx,o,dr,C_AMBER,pulse,0);
+  const m=MSGS[Math.floor(now/1900)%MSGS.length];
+  ctx.globalAlpha=1;ctx.textAlign='center';ctx.textBaseline='middle';
+  // small '!' above
+  ctx.fillStyle='#ffce7a';const w=S*0.038;
+  rr(ctx,S/2-w/2,S*0.30,w,S*0.10,w*0.5);ctx.fill();
+  ctx.beginPath();ctx.arc(S/2,S*0.455,w*0.6,0,7);ctx.fill();
+  // the message
+  ctx.fillStyle='#f5c06a';ctx.font=`500 ${Math.round(S*0.075)}px 'JetBrains Mono',monospace`;
+  ctx.fillText(m,S/2,S*0.60);
+}
+
+function frame(ms){now=ms;
+  drawTRing(tRing);drawTType(tType);drawERing(eRing);drawEType(eType);
+  requestAnimationFrame(frame);}
+resize();requestAnimationFrame(frame);
+</script>
+</body></html>

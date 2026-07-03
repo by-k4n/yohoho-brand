@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yohoho — record indicator (logo's red dot) · #14</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0c10;--panel:#0E1116;--cyan:#39BFC6;--ink:#cdd6da;--muted:#6b7680}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 28px 80px}
+  header{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-bottom:6px}
+  .word{font-family:Doto,monospace;font-weight:800;font-size:34px;letter-spacing:2px;color:var(--cyan)}
+  h1{font-size:15px;font-weight:500;color:var(--muted);margin:0}
+  .sub{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:880px;margin:14px 0 18px}
+  .sub b{color:var(--ink);font-weight:600}
+  .row{display:flex;gap:26px;flex-wrap:wrap}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:9px}
+  .tile{width:188px;height:188px;border-radius:26px;overflow:hidden;background:radial-gradient(120% 120% at 50% 50%, #141922 0%, var(--panel) 58%, #080a0e 100%);border:1px solid #1b212a}
+  .tile.pick{border-color:var(--cyan);box-shadow:0 0 0 1px var(--cyan) inset}
+  .tile canvas{width:100%;height:100%;display:block}
+  .name{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink)}
+  .name.pick{color:var(--cyan)}
+  .desc{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--muted);max-width:188px;text-align:center;line-height:1.45}
+  footer{margin-top:26px;color:var(--muted);font-size:12px;font-family:'JetBrains Mono',monospace;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><span class="word">yohoho</span><h1>record indicator — reclaim the logo's red dot · backlog #14</h1></header>
+  <p class="sub">The ring is in <b>listening</b> (idle twinkle). Each tile adds a <b>recording</b> tell, pulsing slowly
+    (calm breathing, ~1.2s — not the fast blink that read sinister). The logo puts <b>red left + white right</b> on the
+    midline; the first tile reclaims exactly that.</p>
+  <div class="row" id="row"></div>
+  <footer>red = recording (slow pulse) · white = the logo's companion dot (idle/ready) · 104px below each = true size</footer>
+</div>
+
+<script>
+const PI=Math.PI, TAU=2*PI;
+const CY=[57,191,198], ACC=[120,110,250], LUM=[205,225,255], RED=[255,84,84], WHITE=[210,222,228];
+const COLS=28, DOTR=0.32;
+const lerp3=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+const rgb=c=>`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+const cl=x=>x<0?0:x>1?1:x;
+const $=id=>document.getElementById(id);
+
+function makeGrid(S){
+  const cx=S/2, cy=S/2, step=S/COLS, Rin=S*0.25, Rout=S*0.40, soft=step*0.65, dots=[];
+  const rowStep=step*0.866, rows=Math.ceil(S/rowStep)+1;
+  for(let gy=0;gy<rows;gy++){ const y=(gy+0.5)*rowStep, off=(gy&1)?step/2:0;
+    for(let gx=-1;gx<=COLS;gx++){ const x=(gx+0.5)*step+off; if(x<0||x>S) continue;
+      const dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy); if(d<Rin-soft||d>Rout+soft) continue;
+      const edge=Math.max(0,Math.min(1,Math.min((Rout+soft)-d,d-(Rin-soft))/step));
+      dots.push({x,y,edge, bp:cl((d-Rin)/(Rout-Rin)), ph:(gx*12.9+gy*78.2)%6.28, sp:0.7+((gx*7+gy*13)%20)/20*2,
+        tamp:(((gx*31+gy*17)%100)<22?0.6+((gx*gy)%40)/40*0.4:0.07+((gx+gy)%12)/12*0.12)}); } }
+  return {cx,cy,step,dots, dotR:step*DOTR, Rin:S*0.25, Rout:S*0.40};
+}
+function bigDot(ctx,x,y,r,col,b){ b=cl(b);
+  ctx.globalAlpha=0.22*b;ctx.beginPath();ctx.arc(x,y,r*2.4,0,7);ctx.fillStyle=rgb(col);ctx.fill();
+  ctx.globalAlpha=0.85*b+0.15;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fillStyle=rgb(lerp3(col,LUM,0.15*b));ctx.fill();
+  ctx.globalAlpha=1; }
+
+function drawTile(tl,t){
+  const {ctx,grid,S}=tl, dr=grid.dotR; ctx.clearRect(0,0,S,S);
+  // listening ring: twinkle + faint cyan→accent gradient
+  for(const o of grid.dots){ const er=dr*o.edge;
+    const tw=o.tamp*Math.pow(Math.max(0,Math.sin(t*o.sp+o.ph)),5);
+    const b=Math.max(0.10, tw); const g=lerp3(CY,ACC,o.bp), lit=lerp3(g,LUM,b*0.32);
+    ctx.globalAlpha=0.30+0.55*cl(b);ctx.beginPath();ctx.arc(o.x,o.y,er,0,7);ctx.fillStyle=rgb(lit);ctx.fill(); }
+  ctx.globalAlpha=1;
+  // record pulse — calm breathing ~1.2s
+  const pulse=0.30+0.70*(0.5+0.5*Math.sin(t*TAU/1.2));
+  const cx=grid.cx, cy=grid.cy, mid=(grid.Rin+grid.Rout)/2, rR=dr*1.7;
+  if(tl.variant==='pair'){ bigDot(ctx,cx-mid,cy,rR,RED,pulse); bigDot(ctx,cx+mid,cy,rR,WHITE,0.9); }
+  else if(tl.variant==='left'){ bigDot(ctx,cx-mid,cy,rR,RED,pulse); }
+  else if(tl.variant==='top'){ bigDot(ctx,cx,cy-grid.Rin*0.78,rR,RED,pulse); }
+  // 'none' draws nothing extra
+}
+
+const VARIANTS=[
+  {variant:'pair', name:"logo pair (red left + white right)", desc:"reclaims the logo exactly · red pulses (rec), white idle", pick:true},
+  {variant:'left', name:"red left only", desc:"logo's red position, no white · minimal", pick:false},
+  {variant:'top',  name:"red top-inner (your idea)", desc:"small red at top of the hole · off the logo's spot", pick:false},
+  {variant:'none', name:"none (current)", desc:"ring alone is the recording tell", pick:false},
+];
+const row=$('row'), tiles=[];
+for(const v of VARIANTS){ const cell=document.createElement('div'); cell.className='cell';
+  cell.innerHTML=`<div class="tile${v.pick?' pick':''}"><canvas></canvas></div><div class="name${v.pick?' pick':''}">${v.name}</div><div class="desc">${v.desc}</div>`;
+  row.appendChild(cell); const cv=cell.querySelector('canvas');
+  tiles.push({variant:v.variant,cv,ctx:cv.getContext('2d'),S:0,grid:null}); }
+function resize(){const dpr=Math.min(2,devicePixelRatio||1);
+  for(const t of tiles){const b=t.cv.getBoundingClientRect();t.S=Math.round(b.width);
+    t.cv.width=t.S*dpr;t.cv.height=t.S*dpr;t.ctx.setTransform(dpr,0,0,dpr,0,0);t.grid=makeGrid(t.S);}}
+addEventListener('resize',resize);
+function frame(ms){const t=ms/1000; for(const tl of tiles) drawTile(tl,t); requestAnimationFrame(frame);}
+resize(); requestAnimationFrame(frame);
+</script>
+</body></html>

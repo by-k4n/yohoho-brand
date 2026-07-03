@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yohoho — all panel states (logo reference) · #14</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  /* ---- dark (default) ---- */
+  :root{
+    --bg:#0a0c10; --panel:#0E1116; --ink:#cdd6da; --muted:#8a97a0; --accent-text:#39BFC6;
+    --tileA:#141922; --tileB:#0E1116; --tileC:#080a0e; --tile-border:#1b212a;
+    --btn-bg:#12161c; --btn-ink:#dbe3e8; --btn-border:#6d7883; --btn-on:#39BFC6; --focus:#5fd0d6;
+  }
+  /* ---- light (WCAG 2.2 AA: text ≥4.5:1, UI/graphics ≥3:1) ---- */
+  body.light{
+    --bg:#e9edf0; --panel:#f3f6f8; --ink:#1b2024; --muted:#4f5d67; --accent-text:#0b6e78;
+    --tileA:#ffffff; --tileB:#f3f6f8; --tileC:#e7edf0; --tile-border:#c2ccd2;
+    --btn-bg:#ffffff; --btn-ink:#1b2024; --btn-border:#6b7780; --btn-on:#0b6e78; --focus:#0b6e78;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif;
+    transition:background .2s ease,color .2s ease}
+  .wrap{max-width:1180px;margin:0 auto;padding:36px 28px 80px}
+  header{display:flex;align-items:flex-start;justify-content:space-between;gap:18px 26px;flex-wrap:wrap;margin-bottom:6px}
+  .brand{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap}
+  .word{font-family:Doto,monospace;font-weight:800;font-size:34px;letter-spacing:2px;color:var(--accent-text)}
+  h1{font-size:15px;font-weight:500;color:var(--muted);margin:0}
+  .sub{color:var(--muted);font-size:13px;line-height:1.6;max-width:880px;margin:12px 0 22px}
+  .sub b{color:var(--ink);font-weight:600}
+  .toolbar{display:flex;gap:10px;align-items:center}
+  .ctl{display:inline-flex;align-items:center;min-height:34px;font-family:'JetBrains Mono',monospace;font-size:12.5px;
+    background:var(--btn-bg);color:var(--btn-ink);border:1px solid var(--btn-border);border-radius:9px;
+    padding:7px 13px;cursor:pointer;transition:border-color .15s,color .15s,box-shadow .15s}
+  .ctl:hover{border-color:var(--btn-on);color:var(--btn-on)}
+  .ctl[aria-pressed="true"]{border-color:var(--btn-on);color:var(--btn-on);box-shadow:0 0 0 1px var(--btn-on) inset}
+  .ctl:focus-visible,.lnk:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+  .grid{display:grid;grid-template-columns:repeat(3,1fr);gap:30px}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .tile{width:260px;height:260px;border-radius:32px;overflow:hidden;
+    background:radial-gradient(120% 120% at 50% 50%, var(--tileA) 0%, var(--tileB) 58%, var(--tileC) 100%);
+    border:1px solid var(--tile-border)}
+  .tile canvas{width:100%;height:100%;display:block}
+  .name{font-family:'JetBrains Mono',monospace;font-size:12px;color:var(--ink)}
+  .lnk{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);cursor:pointer;
+    background:none;border:none;padding:2px 4px;border-radius:5px}
+  .lnk:hover{color:var(--accent-text)}
+  footer{margin-top:28px;color:var(--muted);font-size:12px;font-family:'JetBrains Mono',monospace;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div class="brand"><span class="word">yohoho</span><h1>every panel state — logo reference sheet · backlog #14</h1></div>
+    <div class="toolbar" role="group" aria-label="Display options">
+      <button id="theme" class="ctl" type="button" aria-pressed="false"><span aria-hidden="true">☀</span>&nbsp;Light mode</button>
+      <button id="motion" class="ctl" type="button"><span aria-hidden="true">⏸</span>&nbsp;Pause</button>
+    </div>
+  </header>
+  <p class="sub">All states of the dot-matrix panel, animating live. Each tile has a <b>⤓ png</b> button that exports a
+    clean 520px isolated PNG of the current frame (for designing the new logo). Roundel proportions throughout.
+    Toggle <b>light mode</b> to preview the marks on a light surface; both themes meet WCAG&nbsp;2.2&nbsp;AA contrast.</p>
+  <div class="grid" id="grid"></div>
+  <footer>idle · speaking · transcribing · error · cancelled · done(✓) · done(yohoho) · loading · downloading — brand cyan #39BFC6 · accent indigo · amber #f5a623</footer>
+</div>
+
+<script>
+const REDUCED=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const PI=Math.PI, TAU=2*PI, ASECT=64;
+const COLS=28, DOTR=0.32;
+const lerp3=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+const rgb=c=>`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+const cl=x=>x<0?0:x>1?1:x;
+const $=id=>document.getElementById(id);
+
+// ---- themeable palette (dark = brand; light = darkened so every lit dot / Doto glyph clears AA) ----
+const THEMES={
+  dark:{ OFF:'#23282f', MUTEDDOT:'rgb(22,41,43)',
+    CY:[57,191,198], ACC:[120,110,250], LUM:[205,225,255], HOT:[234,253,255], AMBER:[245,166,35], NEU:[150,167,169] },
+  light:{ OFF:'#c2ccd0', MUTEDDOT:'rgb(210,218,221)',
+    CY:[11,110,120], ACC:[78,70,180], LUM:[8,38,44], HOT:[6,66,72], AMBER:[156,92,0], NEU:[75,88,92] },
+};
+let TH=THEMES.dark;
+
+function dotG(ctx,x,y,er,col,b,pulse){ b=cl(b); const lit=lerp3(col,TH.LUM,b*0.35);
+  ctx.globalAlpha=0.16*b;ctx.beginPath();ctx.arc(x,y,er*1.8,0,7);ctx.fillStyle=rgb(col);ctx.fill();
+  ctx.globalAlpha=0.30+0.70*b;ctx.beginPath();ctx.arc(x,y,er*(1+(pulse||0)),0,7);ctx.fillStyle=rgb(lit);ctx.fill();ctx.globalAlpha=1; }
+function band(ctx,P){ const dr=P.dotR; ctx.fillStyle=TH.MUTEDDOT; for(const o of P.dots){ if(!o.inBand)continue; ctx.beginPath();ctx.arc(o.x,o.y,dr*0.95,0,7);ctx.fill(); } ctx.globalAlpha=1; }
+function ringDim(ctx,P,col){ const dr=P.dotR; for(const o of P.dots){ if(o.inBand||o.ringEdge<=0)continue; const er=dr*o.ringEdge,b=0.07*(0.6+0.4*o.bp),lit=lerp3(col,TH.LUM,b*0.3); ctx.globalAlpha=0.26+0.5*b;ctx.beginPath();ctx.arc(o.x,o.y,er,0,7);ctx.fillStyle=rgb(lit);ctx.fill(); } ctx.globalAlpha=1; }
+function barWord(ctx,P,word,col,t,animDots){ ctx.save();ctx.textBaseline='alphabetic';ctx.textAlign='left';ctx.font=`800 ${P.fontPx}px "Doto",monospace`;
+  ctx.shadowColor=rgb(col);ctx.shadowBlur=P.fontPx*0.3; const fm=ctx.measureText('Hg'),yc=P.cy+(fm.fontBoundingBoxAscent-fm.fontBoundingBoxDescent)/2;
+  const lit=lerp3(col,TH.LUM,0.3); const tail=animDots?'...':''; const fullW=ctx.measureText(word+tail).width, sx=P.cx-fullW/2;
+  ctx.globalAlpha=1;ctx.fillStyle=rgb(lit);ctx.fillText(word,sx,yc);
+  if(animDots){ const wW=ctx.measureText(word).width, adv=ctx.measureText(word+'.').width-wW, n=1+Math.floor(t*1000/360)%3; for(let i=0;i<3;i++){ctx.globalAlpha=(i<n?1:0.13);ctx.fillText('.',sx+wW+adv*i,yc);} }
+  ctx.restore();ctx.globalAlpha=1; }
+
+function makePanel(ctx,S){
+  const step=S/COLS, rowStep=step*0.866, Rin=S*0.25, Rout=S*0.40, soft=step*0.7, cx=S/2, cy=S/2;
+  const Wb=S*0.95, innerW=Wb-step*2.4;
+  ctx.font=`800 100px "Doto",monospace`;
+  const fontPx=Math.min(S*0.135, 100*innerW/Math.max(1,ctx.measureText('transcribing...').width));
+  const Hb=fontPx*1.75, r=Hb/2;
+  const x0=cx-Wb/2, x1=cx+Wb/2, y0=cy-Hb/2, y1=cy+Hb/2, dots=[], rows=Math.ceil(S/rowStep)+1;
+  for(let gy=0;gy<rows;gy++){ const y=(gy+0.5)*rowStep, off=(gy&1)?step/2:0;
+    for(let gx=-1;gx<=COLS;gx++){ const x=(gx+0.5)*step+off; if(x<0||x>S) continue;
+      const dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy);
+      const ringEdge=(d<Rin-soft||d>Rout+soft)?0:Math.max(0,Math.min(1,Math.min((Rout+soft)-d,d-(Rin-soft))/step));
+      let inBand=false; if(x>=x0&&x<=x1&&y>=y0&&y<=y1){ const clx=Math.max(x0+r,Math.min(x1-r,x)); inBand=Math.hypot(x-clx,y-cy)<=r-step*0.15; }
+      if(!inBand && ringEdge<=0) continue;
+      const ang=Math.atan2(dy,dx), ta=((ang+PI/2)%TAU+TAU)%TAU;
+      dots.push({x,y,ringEdge,inBand,ta, bp:cl((d-Rin)/(Rout-Rin)), sbin:Math.floor(ta/TAU*ASECT)%ASECT,
+        ph:(gx*12.9+gy*78.2)%6.28, sp:0.7+((gx*7+gy*13)%20)/20*2, tamp:(((gx*31+gy*17)%100)<22?0.6+((gx*gy)%40)/40*0.4:0.07+((gx+gy)%12)/12*0.12)}); } }
+  return {dots, dotR:step*DOTR, Wb, Hb, fontPx, cx, cy, step, Rin:S*0.25, Rout:S*0.40};
+}
+
+// synthetic static-ish spectrum for the speaking bloom
+function secAt(s,t){ const ta=(s+0.5)/ASECT*TAU, fold=Math.min(ta,TAU-ta)/PI, frac=1-fold;
+  const e=0.95*Math.exp(-((frac-0.72-0.05*Math.sin(t*1.7))**2)/0.02)+0.7*Math.exp(-((frac-0.45)**2)/0.03)+0.5*Math.exp(-((frac-0.2)**2)/0.05);
+  return cl(e*(0.6+0.5*Math.max(0,Math.sin(t*5.5)))); }
+
+// ---- listening = the v7 ring EXACTLY: thicker roundel (Rin .285 / Rout .46), dark off-dots
+//      (TH.OFF — NO muted-gradient baseline), cyan→accent only on LIT dots (twinkle idle, per-arc bloom speaking).
+function makeRingV7(ctx,S){
+  const cx=S/2, cy=S/2, step=S/COLS, Rin=S*0.285, Rout=S*0.46, soft=step*0.7, dots=[];
+  const rowStep=step*0.866, rows=Math.ceil(S/rowStep)+1;
+  for(let gy=0;gy<rows;gy++){ const y=(gy+0.5)*rowStep, off=(gy&1)?step/2:0;
+    for(let gx=-1;gx<=COLS;gx++){ const x=(gx+0.5)*step+off; if(x<0||x>S) continue;
+      const dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy); if(d<Rin-soft||d>Rout+soft) continue;
+      const edge=Math.max(0,Math.min(1,Math.min((Rout+soft)-d,d-(Rin-soft))/step));
+      const ang=Math.atan2(dy,dx), ta=((ang+PI/2)%TAU+TAU)%TAU;
+      dots.push({x,y,edge,bp:cl((d-Rin)/(Rout-Rin)),sbin:Math.floor(ta/TAU*ASECT)%ASECT,
+        ph:(gx*12.9+gy*78.2)%6.28, sp:0.7+((gx*7+gy*13)%20)/20*2.2,
+        tamp:(((gx*31+gy*17)%100)<22?0.55+((gx*gy)%40)/40*0.4:0.07+((gx+gy)%12)/12*0.12)}); } }
+  return {dots, dotR:step*DOTR, cx, cy};
+}
+function drawRingV7(ctx,P,t,active){ const dr=P.dotR; const sec=[];
+  if(active>0) for(let s=0;s<ASECT;s++) sec[s]=secAt(s,t);
+  for(const o of P.dots){ const er=dr*o.edge;
+    let aBloom=0; if(active>0){ const e=sec[o.sbin], within=e-o.bp; aBloom=(within>0?1:Math.max(0,1+within/0.12))*e*active; }
+    const aTw=1.5*o.tamp*Math.pow(Math.max(0,Math.sin(t*o.sp+o.ph)),5)*(1-active);
+    const b=Math.max(aBloom,aTw);
+    if(b<=0.04){ ctx.globalAlpha=1; ctx.beginPath(); ctx.arc(o.x,o.y,er,0,7); ctx.fillStyle=TH.OFF; ctx.fill(); continue; }
+    const g=lerp3(TH.CY,TH.ACC,o.bp), lit=lerp3(g,TH.LUM,b*0.32);
+    ctx.globalAlpha=0.18*b; ctx.beginPath(); ctx.arc(o.x,o.y,er*1.7,0,7); ctx.fillStyle=rgb(g); ctx.fill();
+    ctx.globalAlpha=0.30+0.70*Math.min(1,b); ctx.beginPath(); ctx.arc(o.x,o.y,er*(1+0.25*aBloom),0,7); ctx.fillStyle=rgb(lit); ctx.fill(); }
+  ctx.globalAlpha=1; }
+
+function msg(ctx,P,t,word,col,animDots){ ringDim(ctx,P,col); band(ctx,P); barWord(ctx,P,word,col,t,animDots); }
+function doneCheck(ctx,P,t){ const dr=P.dotR; for(const o of P.dots){ if(o.inBand){ctx.globalAlpha=1;ctx.fillStyle=TH.MUTEDDOT;ctx.beginPath();ctx.arc(o.x,o.y,dr*0.95,0,7);ctx.fill();continue;} if(o.ringEdge<=0)continue; dotG(ctx,o.x,o.y,dr*o.ringEdge,lerp3(TH.CY,TH.HOT,0.25),0.9,0);} ctx.globalAlpha=1;
+  const s=P.Hb*0.42, cx=P.cx, cy=P.cy, col=lerp3(TH.CY,TH.HOT,0.3);
+  const A={x:cx-s*1.1,y:cy+s*0.06},B={x:cx-s*0.28,y:cy+s*0.6},C={x:cx+s*1.25,y:cy-s*0.72};
+  const l1=Math.hypot(B.x-A.x,B.y-A.y),l2=Math.hypot(C.x-B.x,C.y-B.y),gap=dr*2.3;
+  for(let d=0;d<=l1+l2;d+=gap){ let x,y; if(d<=l1){const u=d/l1;x=A.x+(B.x-A.x)*u;y=A.y+(B.y-A.y)*u;}else{const u=(d-l1)/l2;x=B.x+(C.x-B.x)*u;y=B.y+(C.y-B.y)*u;} dotG(ctx,x,y,dr*1.05,col,1,0.15);} }
+function doneWord(ctx,P,t){ ringDim(ctx,P,TH.CY); band(ctx,P); barWord(ctx,P,'yohoho',TH.CY,t,false); }
+function loading(ctx,P,t,word,frac){ const dr=P.dotR, head=frac*TAU;
+  for(const o of P.dots){ if(o.inBand){ctx.globalAlpha=1;ctx.fillStyle=TH.MUTEDDOT;ctx.beginPath();ctx.arc(o.x,o.y,dr*0.95,0,7);ctx.fill();continue;} if(o.ringEdge<=0)continue;
+    let b,col=TH.CY; const lit=o.ta<=head; if(lit){b=1;const dh=head-o.ta;const hg=(dh>=0&&dh<0.4)?1-dh/0.4:0;col=lerp3(TH.CY,TH.HOT,hg*0.6);}else b=0.12;
+    dotG(ctx,o.x,o.y,dr*o.ringEdge,col,b,0);} ctx.globalAlpha=1; barWord(ctx,P,word,TH.CY,t,true); }
+
+const STATES=[
+  {key:'idle',       name:'listening · idle (twinkle)', ring:true, draw:(c,P,t)=>drawRingV7(c,P,t,0)},
+  {key:'speaking',   name:'listening · speaking (bloom)', ring:true, draw:(c,P,t)=>drawRingV7(c,P,t,1)},
+  {key:'transcribing',name:'transcribing', draw:(c,P,t)=>msg(c,P,t,'transcribing',TH.CY,true)},
+  {key:'error',      name:'error (no permission)', draw:(c,P,t)=>msg(c,P,t,'no permission',TH.AMBER,false)},
+  {key:'cancelled',  name:'cancelled', draw:(c,P,t)=>msg(c,P,t,'cancelled',TH.NEU,false)},
+  {key:'done-check', name:'done · check', draw:(c,P,t)=>doneCheck(c,P,t)},
+  {key:'done-yohoho',name:'done · yohoho', draw:(c,P,t)=>doneWord(c,P,t)},
+  {key:'loading',    name:'loading', draw:(c,P,t)=>loading(c,P,t,'loading',(t*0.5)%1)},
+  {key:'downloading',name:'downloading', draw:(c,P,t)=>loading(c,P,t,'downloading',(0.12+t*0.18)%1)},
+];
+
+const grid=$('grid'), tiles=[];
+for(const st of STATES){ const cell=document.createElement('div'); cell.className='cell';
+  cell.innerHTML=`<div class="tile"><canvas></canvas></div><div class="name">${st.name}</div><button class="lnk" type="button">⤓ png</button>`;
+  grid.appendChild(cell); const cv=cell.querySelector('canvas');
+  cv.setAttribute('role','img'); cv.setAttribute('aria-label',st.name+' — yohoho panel state');
+  const tile={st,cv,ctx:cv.getContext('2d'),S:0,P:null}; tiles.push(tile);
+  cell.querySelector('.lnk').onclick=(e)=>{e.preventDefault(); const a=document.createElement('a'); a.href=cv.toDataURL('image/png'); a.download='yohoho-'+st.key+'.png'; a.click();}; }
+
+function resize(){const dpr=2; for(const t of tiles){const b=t.cv.getBoundingClientRect();t.S=Math.round(b.width);
+  t.cv.width=t.S*dpr;t.cv.height=t.S*dpr;t.ctx.setTransform(dpr,0,0,dpr,0,0);
+  t.P=t.st.ring?makeRingV7(t.ctx,t.S):makePanel(t.ctx,t.S);}}
+
+let playing=!REDUCED, tNow=1.1, rafId=0;
+function render(t){ for(const tl of tiles){tl.ctx.clearRect(0,0,tl.S,tl.S); tl.st.draw(tl.ctx,tl.P,t);} }
+function frame(ms){ tNow=ms/1000; render(tNow); rafId=playing?requestAnimationFrame(frame):0; }
+function play(){ if(!rafId){ rafId=requestAnimationFrame(frame); } }
+function pause(){ if(rafId){ cancelAnimationFrame(rafId); rafId=0; } render(tNow); }
+addEventListener('resize',()=>{resize(); if(!playing) render(tNow);});
+
+// ---- accessible controls ----
+const themeBtn=$('theme'), motionBtn=$('motion');
+function setThemeLabel(){ const light=document.body.classList.contains('light');
+  themeBtn.innerHTML = light ? '<span aria-hidden="true">🌙</span>&nbsp;Dark mode' : '<span aria-hidden="true">☀</span>&nbsp;Light mode';
+  themeBtn.setAttribute('aria-pressed', String(light)); }
+function setMotionLabel(){ motionBtn.innerHTML = playing ? '<span aria-hidden="true">⏸</span>&nbsp;Pause' : '<span aria-hidden="true">▶</span>&nbsp;Play';
+  motionBtn.setAttribute('aria-label', playing?'Pause animation':'Play animation'); }
+themeBtn.onclick=()=>{ const light=!document.body.classList.contains('light'); document.body.classList.toggle('light',light);
+  TH = light?THEMES.light:THEMES.dark; setThemeLabel(); if(!playing) render(tNow); };
+motionBtn.onclick=()=>{ playing=!playing; setMotionLabel(); playing?play():pause(); };
+// deep-link the theme: open …#light to land in light mode (else honour the OS preference)
+if(/light/.test(location.hash) || (!/dark/.test(location.hash) && matchMedia('(prefers-color-scheme: light)').matches)){
+  document.body.classList.add('light'); TH=THEMES.light; }
+setThemeLabel(); setMotionLabel();
+
+function boot(){ resize(); if(playing) play(); else render(tNow); }
+(document.fonts?document.fonts.load('800 40px "Doto"'):Promise.resolve()).then(boot).catch(boot);
+</script>
+</body></html>

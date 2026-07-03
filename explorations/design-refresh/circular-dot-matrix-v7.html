@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yohoho — v7 panel-size square (104×104) · #14</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@400;600;800&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0c10;--panel:#0E1116;--cyan:#39BFC6;--ink:#cdd6da;--muted:#6b7680}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 28px 80px}
+  header{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-bottom:6px}
+  .word{font-family:Doto,monospace;font-weight:800;font-size:34px;letter-spacing:2px;color:var(--cyan)}
+  h1{font-size:15px;font-weight:500;color:var(--muted);margin:0}
+  .sub{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:840px;margin:14px 0 22px}
+  .sub b{color:var(--ink);font-weight:600}
+
+  /* ---- true-size real-estate comparison ---- */
+  .compare{display:flex;align-items:flex-end;gap:40px;flex-wrap:wrap;background:#06080b;border:1px solid #161b22;
+           border-radius:14px;padding:30px 34px;margin:0 0 26px}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:10px}
+  .clabel{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
+  .clabel b{color:var(--cyan);font-weight:600}
+  /* current pill — TRUE size 280x40 (1 CSS px ≈ 1 macOS pt) */
+  .pill{width:280px;height:40px;border-radius:20px;overflow:hidden;
+        background:radial-gradient(120% 160% at 22% 50%, #141922 0%, var(--panel) 60%, #080a0e 100%);border:1px solid #1b212a}
+  /* new square — TRUE size 104x104, macOS-style rounded window corner */
+  .square{width:104px;height:104px;border-radius:20px;overflow:hidden;
+          background:radial-gradient(120% 120% at 50% 50%, #141922 0%, var(--panel) 58%, #080a0e 100%);border:1px solid #1b212a}
+  .square72{width:72px;height:72px;border-radius:14px;overflow:hidden;
+          background:radial-gradient(120% 120% at 50% 50%, #141922 0%, var(--panel) 58%, #080a0e 100%);border:1px solid #1b212a}
+  .pill canvas,.square canvas,.square72 canvas{width:100%;height:100%;display:block}
+
+  .controls{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+  button{font-family:'JetBrains Mono',monospace;font-size:12.5px;background:#12161c;color:var(--ink);border:1px solid #232a31;border-radius:8px;padding:8px 14px;cursor:pointer;transition:.15s}
+  button:hover{border-color:var(--cyan)} button.on{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 0 1px var(--cyan) inset}
+  button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  .hint{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted)}
+  #micnote{display:none;color:#ff5454;font-size:12px;font-family:'JetBrains Mono',monospace;margin:-4px 0 18px}
+
+  /* zoomed detail/test view */
+  .zoomwrap{display:flex;gap:26px;align-items:flex-start;flex-wrap:wrap}
+  .stage{width:320px;height:320px;background:radial-gradient(120% 120% at 50% 50%, #141922 0%, var(--panel) 58%, #080a0e 100%);
+         border-radius:24px;position:relative;overflow:hidden;border:1px solid #161b22}
+  .stage canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .zlabel{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted);margin-top:8px}
+  .panelctl{min-width:240px;flex:1}
+  .gatewrap{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:10px;margin:0 0 12px}
+  .gatewrap input[type=range]{flex:1;accent-color:var(--cyan)}
+  footer{margin-top:30px;color:var(--muted);font-size:12px;font-family:'JetBrains Mono',monospace;line-height:1.7}
+  footer b{color:var(--ink)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><span class="word">yohoho</span><h1>v7 — panel-size square (104×104) · backlog #14</h1></header>
+  <p class="sub">The v6 ring re-tuned to the <b>real panel footprint</b>. Current pill = <b>280×40 = 11,200 pt²</b>; the new
+    square at <b>104×104 = 10,816 pt²</b> (≈ the pill) or <b>72×72 = 5,184 pt²</b> (~54% less). The panels below are at
+    <b>true 1:1 size</b> (1 CSS px ≈ 1 macOS pt) so you can judge the footprint directly. The lattice is coarsened so the
+    dots read at this size — same tone bloom, idle twinkle (+50%), gate + sensitivity, cyan→accent gradient.</p>
+
+  <div class="compare">
+    <div class="cell">
+      <div class="pill"><canvas id="pill"></canvas></div>
+      <div class="clabel">current · <b>280 × 40</b> pill</div>
+    </div>
+    <div class="cell">
+      <div class="square"><canvas id="square"></canvas></div>
+      <div class="clabel">new · <b>104 × 104</b> square</div>
+    </div>
+    <div class="cell">
+      <div class="square72"><canvas id="square72"></canvas></div>
+      <div class="clabel">smaller · <b>72 × 72</b> square</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <button id="mic" class="on">🎤 use my mic</button>
+    <button id="speak" class="on">● synthetic</button><button id="quiet">○ quiet</button>
+    <button id="grad">accent: indigo ▸</button>
+    <button id="pack">grid: staggered ▸</button>
+    <span class="hint">click “use my mic”, allow, then speak</span>
+  </div>
+  <p id="micnote">Mic needs a secure origin — open at <b>http://localhost:8777/circular-dot-matrix-v7.html</b>, then click “use my mic”.</p>
+
+  <div class="zoomwrap">
+    <div>
+      <div class="stage"><canvas id="cv"></canvas></div>
+      <div class="zlabel">~3× zoom — same panel, magnified for detail</div>
+    </div>
+    <div class="panelctl">
+      <div class="gatewrap"><span>noise&nbsp;gate</span><input id="gate" type="range" min="0" max="100" value="22"><span id="gateval">0.15</span></div>
+      <div class="gatewrap"><span>sensitivity</span><input id="sens" type="range" min="0" max="100" value="10"><span id="sensval">10</span></div>
+      <div class="gatewrap"><span>columns</span><input id="cols" type="range" min="16" max="36" value="28"><span id="colsval">28</span></div>
+      <div class="gatewrap"><span>dot&nbsp;size</span><input id="dotr" type="range" min="14" max="46" value="32"><span id="dotrval">0.32</span></div>
+    </div>
+  </div>
+
+  <footer>true-size panels at 1:1 · square <b>104²=10,816 pt²</b> vs pill <b>11,200 pt²</b> (≈ equal, slightly less)<br>
+    one shared square size works on every OS (no Doto timer) · cyan #39BFC6 → accent · tone bloom · twinkle ×1.5 · no REC dot</footer>
+</div>
+
+<script>
+const REDUCED=matchMedia('(prefers-reduced-motion: reduce)').matches, PI=Math.PI, TAU=2*PI;
+const CY=[57,191,198], LUM=[205,225,255];
+const ACCENTS=[{n:'indigo',c:[120,110,250]},{n:'red',c:[255,84,84]},{n:'teal',c:[80,210,170]}];
+let accentIdx=0;                                                   // default: indigo (user-settable)
+let staggered=true;                                                // hex packing → rounder ring
+const TWINKLE=1.5;                                                 // idle-twinkle gain (v6: +50%)
+let COLS=28;                                                       // lattice columns (panel-tuned, live slider)
+let DOTR=0.32;                                                     // dot radius as fraction of step (panel-tuned)
+const lerp3=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+const rgb=c=>`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+const $=id=>document.getElementById(id);
+const gradEl=$('grad'); gradEl.onclick=()=>{accentIdx=(accentIdx+1)%ACCENTS.length; gradEl.textContent='accent: '+ACCENTS[accentIdx].n+' ▸';};
+const packEl=$('pack'); packEl.onclick=()=>{staggered=!staggered; packEl.textContent='grid: '+(staggered?'staggered':'square')+' ▸'; resizeAll();};
+
+// ---- audio ----
+let speaking=true, useMic=false, analyser=null, freqData=null, sampleRate=48000;
+const sb=$('speak'),qb=$('quiet'),micBtn=$('mic');
+sb.onclick=()=>{speaking=true;sb.classList.add('on');qb.classList.remove('on')};
+qb.onclick=()=>{speaking=false;qb.classList.add('on');sb.classList.remove('on')};
+micBtn.onclick=async()=>{
+  if(useMic){useMic=false;micBtn.classList.remove('on');micBtn.textContent='🎤 use my mic';return;}
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:false}});
+    const AC=window.AudioContext||window.webkitAudioContext, ac=new AC(); await ac.resume(); sampleRate=ac.sampleRate;
+    const src=ac.createMediaStreamSource(stream);
+    analyser=ac.createAnalyser(); analyser.fftSize=2048; analyser.smoothingTimeConstant=0.5;
+    freqData=new Uint8Array(analyser.frequencyBinCount); src.connect(analyser);
+    useMic=true; micBtn.classList.add('on'); micBtn.textContent='🎤 mic on — speak';
+  }catch(e){ $('micnote').style.display='block'; micBtn.textContent='🎤 mic blocked'; }
+};
+const sensEl=$('sens'), sensValEl=$('sensval'); sensEl.addEventListener('input',()=>sensValEl.textContent=sensEl.value);
+const colsEl=$('cols'), colsValEl=$('colsval'); colsEl.addEventListener('input',()=>{COLS=+colsEl.value;colsValEl.textContent=COLS;resizeAll();});
+const dotrEl=$('dotr'), dotrValEl=$('dotrval'); dotrEl.addEventListener('input',()=>{DOTR=dotrEl.value/100;dotrValEl.textContent=DOTR.toFixed(2);resizeAll();});
+function shape(raw){const sv=sensEl.value/100, gain=0.7+sv*2.3, g=2.7-sv*1.6; return Math.pow(Math.min(1,Math.max(0,raw*gain)),g);}
+function energyAt(frac,t){
+  if(useMic && analyser){const hz=80*Math.pow(6000/80,frac), binHz=sampleRate/analyser.fftSize;
+    const i=Math.max(1,Math.min(freqData.length-1,Math.round(hz/binHz))); return shape((freqData[i]/255)*(1+frac*1.1));}
+  if(!speaking) return 0;
+  const f1=Math.exp(-((frac-0.16-0.04*Math.sin(t*1.7))**2)/0.02);
+  const f2=Math.exp(-((frac-0.46-0.07*Math.sin(t*2.3+1))**2)/0.03);
+  const f3=Math.exp(-((frac-0.82)**2)/0.05)*Math.max(0,Math.sin(t*8))*0.7;
+  const burst=Math.max(0,Math.sin(t*6.1))*Math.max(0,Math.sin(t*2.0+1))**2;
+  return shape((0.12+0.9*burst)*(f1*0.9+f2*0.8+f3));
+}
+function voiceLevel(t){
+  if(useMic && analyser){const binHz=sampleRate/analyser.fftSize; let s=0,n=0;
+    for(let hz=200;hz<=3000;hz+=binHz){s+=freqData[Math.round(hz/binHz)];n++;} return Math.min(1,(s/n/255)*1.6);}
+  if(!speaking) return 0;
+  const burst=Math.max(0,Math.sin(t*6.1))*Math.max(0,Math.sin(t*2.0+1))**2; return Math.min(1,0.04+burst*1.1);
+}
+
+// ---- gate ----
+const gateEl=$('gate'), gateValEl=$('gateval');
+let gateOpen=false, hold=0, activeMix=0;
+function tuned(){const v=gateEl.value/100; const open=0.04+v*0.5; return {open,close:open*0.62};}
+function updateGate(vl,dt){const T=tuned(); gateValEl.textContent=T.open.toFixed(2);
+  if(vl>T.open){gateOpen=true;hold=0.45;} else if(gateOpen){if(vl<T.close){hold-=dt;if(hold<=0)gateOpen=false;}else hold=0.45;}
+  activeMix+=((gateOpen?1:0)-activeMix)*(gateOpen?0.4:0.06);}
+
+// ---- pixel grid → ring (panel-tuned: live COLS / DOTR so it reads small) ----
+const ASECT=64;
+let sec=new Float32Array(ASECT);
+function makeGrid(S){
+  const cx=S/2, cy=S/2, step=S/COLS, Rin=S*0.285, Rout=S*0.46, soft=step*0.7, dots=[];
+  const rowStep=staggered?step*0.866:step, rows=Math.ceil(S/rowStep)+1;
+  for(let gy=0;gy<rows;gy++){
+    const y=(gy+0.5)*rowStep, off=(staggered && (gy&1))?step/2:0;
+    for(let gx=-1;gx<=COLS;gx++){
+      const x=(gx+0.5)*step+off; if(x<0||x>S) continue;
+      const dx=x-cx, dy=y-cy, d=Math.hypot(dx,dy);
+      if(d<Rin-soft || d>Rout+soft) continue;
+      const edge=Math.max(0,Math.min(1, Math.min((Rout+soft)-d, d-(Rin-soft))/step));
+      const ang=Math.atan2(dy,dx), ta=((ang+PI/2)%TAU+TAU)%TAU;
+      dots.push({x,y, edge, bp:Math.max(0,Math.min(1,(d-Rin)/(Rout-Rin))), sbin:Math.floor(ta/TAU*ASECT)%ASECT,
+        ph:Math.random()*6.28, sp:0.7+Math.random()*2.2, tamp:(Math.random()<0.225?0.55+Math.random()*0.4:0.07+Math.random()*0.12)});
+    }
+  }
+  return {cx,cy,step,dots, dotR:step*DOTR};
+}
+
+// canvases that render the live ring (true-size square + zoom)
+const ring=[];
+function addRing(id){const cv=$(id), ctx=cv.getContext('2d'); const r={cv,ctx,S:0,grid:null}; ring.push(r); return r;}
+addRing('square'); addRing('square72'); addRing('cv');
+function resizeAll(){
+  const dpr=Math.min(2,devicePixelRatio||1);
+  for(const r of ring){const box=r.cv.getBoundingClientRect(); r.S=Math.max(1,Math.round(box.width));
+    r.cv.width=r.S*dpr; r.cv.height=r.S*dpr; r.ctx.setTransform(dpr,0,0,dpr,0,0); r.grid=makeGrid(r.S);}
+  drawPill();
+}
+addEventListener('resize',resizeAll);
+
+function drawRing(ctx,grid,S,t){
+  ctx.clearRect(0,0,S,S);
+  const dr=grid.dotR;
+  for(const o of grid.dots){
+    const e=sec[o.sbin], within=e-o.bp;
+    const aBloom=(within>0?1:Math.max(0,1+within/0.12))*e*activeMix;
+    const aTw=TWINKLE*o.tamp*Math.pow(Math.max(0,Math.sin(t*o.sp+o.ph)),5)*(1-activeMix);
+    const b=Math.max(aBloom,aTw);
+    const er=dr*o.edge;
+    if(b<=0.04){ctx.globalAlpha=1;ctx.beginPath();ctx.arc(o.x,o.y,er,0,7);ctx.fillStyle='#23282f';ctx.fill();continue;}
+    const g=lerp3(CY,ACCENTS[accentIdx].c,o.bp);
+    const lit=lerp3(g,LUM,b*0.32);
+    ctx.globalAlpha=0.18*b;ctx.beginPath();ctx.arc(o.x,o.y,er*1.7,0,7);ctx.fillStyle=rgb(g);ctx.fill();
+    ctx.globalAlpha=0.30+0.70*Math.min(1,b);ctx.beginPath();ctx.arc(o.x,o.y,er*(1+0.25*aBloom),0,7);ctx.fillStyle=rgb(lit);ctx.fill();
+    ctx.globalAlpha=1;
+  }
+}
+
+// ---- current pill (static, true 280x40) — for real-estate reference only ----
+const pillCv=$('pill'), pillCtx=pillCv.getContext('2d');
+function drawPill(){
+  const dpr=Math.min(2,devicePixelRatio||1), box=pillCv.getBoundingClientRect();
+  const W=Math.round(box.width)||280, H=Math.round(box.height)||40;
+  pillCv.width=W*dpr; pillCv.height=H*dpr; pillCtx.setTransform(dpr,0,0,dpr,0,0);
+  pillCtx.clearRect(0,0,W,H);
+  // REC dot
+  pillCtx.globalAlpha=0.25;pillCtx.beginPath();pillCtx.arc(18,20,7,0,7);pillCtx.fillStyle='#ff5454';pillCtx.fill();
+  pillCtx.globalAlpha=1;pillCtx.beginPath();pillCtx.arc(18,20,4,0,7);pillCtx.fillStyle='#ff5454';pillCtx.fill();
+  // center-out waveform (44 cols x 7 rows, static sample)
+  for(let c=0;c<44;c++){const x=40+c*4, amp=Math.abs(Math.sin(c*0.5))*0.7+0.1, half=Math.round(amp*3);
+    for(let r=-3;r<=3;r++){const y=20+r*4; const on=Math.abs(r)<=half;
+      pillCtx.globalAlpha=on?(1-Math.abs(r)/4):1; pillCtx.beginPath();pillCtx.arc(x,y,1,0,7);
+      pillCtx.fillStyle=on?'#39BFC6':'#23282f';pillCtx.fill();}}
+  pillCtx.globalAlpha=1;
+}
+
+function frame(ms){
+  const t=ms/1000, dt=1/60;
+  if(useMic && analyser) analyser.getByteFrequencyData(freqData);
+  updateGate(voiceLevel(t),dt);
+  for(let s=0;s<ASECT;s++){const ta=(s+0.5)/ASECT*TAU, fold=Math.min(ta,TAU-ta)/PI; sec[s]+=(energyAt(1-fold,t)-sec[s])*(useMic?0.5:0.34);}
+  for(const r of ring) drawRing(r.ctx,r.grid,r.S,t);
+  if(!REDUCED) requestAnimationFrame(frame);
+}
+resizeAll();
+if(REDUCED){updateGate(0.7,1);for(let s=0;s<ASECT;s++){const ta=(s+0.5)/ASECT*TAU;sec[s]=energyAt(1-Math.min(ta,TAU-ta)/PI,1.1);}for(const r of ring)drawRing(r.ctx,r.grid,r.S,1.1);}
+else requestAnimationFrame(frame);
+</script>
+</body></html>

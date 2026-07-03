@@ -1,0 +1,224 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yohoho — circular dot-matrix explorations (#14)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@400;600;800&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0a0c10; --panel:#0E1116; --grid:#2a2f37; --dim:#1b2026;
+    --cyan:#39BFC6; --cyan-hi:#a8eef2; --rec:#ff5454; --ink:#cdd6da; --muted:#6b7680;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 28px 80px}
+  header{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-bottom:6px}
+  .word{font-family:Doto,monospace;font-weight:800;font-size:34px;letter-spacing:2px;color:var(--cyan)}
+  h1{font-size:15px;font-weight:500;color:var(--muted);margin:0;letter-spacing:.3px}
+  .sub{color:var(--muted);font-size:13.5px;line-height:1.6;max-width:760px;margin:14px 0 24px}
+  .sub b{color:var(--ink);font-weight:600}
+  .controls{display:flex;gap:10px;align-items:center;margin-bottom:30px;flex-wrap:wrap}
+  button{font-family:'JetBrains Mono',monospace;font-size:12.5px;background:#12161c;color:var(--ink);
+    border:1px solid #232a31;border-radius:8px;padding:8px 14px;cursor:pointer;transition:.15s}
+  button:hover{border-color:var(--cyan)}
+  button.on{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 0 1px var(--cyan) inset}
+  button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  .hint{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted)}
+  .grid{display:grid;grid-template-columns:repeat(2,1fr);gap:26px}
+  @media(max-width:720px){.grid{grid-template-columns:1fr}}
+  .card{background:#0c0f14;border:1px solid #1a1f26;border-radius:16px;padding:20px;display:flex;flex-direction:column;gap:14px}
+  .stage{aspect-ratio:1/1;width:100%;background:
+      radial-gradient(120% 120% at 50% 38%, #141922 0%, var(--panel) 55%, #080a0e 100%);
+    border-radius:18px;position:relative;overflow:hidden;border:1px solid #161b22}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .meta{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+  .tag{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--cyan);letter-spacing:1.5px;text-transform:uppercase}
+  .name{font-size:15px;font-weight:600;color:var(--ink)}
+  .desc{font-size:12.5px;color:var(--muted);line-height:1.55}
+  footer{margin-top:46px;color:var(--muted);font-size:12px;font-family:'JetBrains Mono',monospace;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <span class="word">yohoho</span>
+    <h1>circular dot-matrix — explorations · backlog #14</h1>
+  </header>
+  <p class="sub">A <b>square panel</b> holding a <b>dot-matrix disc</b>. Sound travels
+    <b>clockwise around the ring</b> (time) and <b>blooms radially outward</b> (loudness) — not just
+    radial pulses. Four takes on that motion. The <b>REC dot</b> sits at 12 o'clock; cyan is the live
+    wave. Driven here by <b>synthetic speech</b> for preview — the real panel uses live mic level.</p>
+  <div class="controls">
+    <button id="speak" class="on">● speaking</button>
+    <button id="quiet">○ quiet</button>
+    <span class="hint">toggle to see the live vs idle behaviour</span>
+  </div>
+
+  <div class="grid" id="grid"></div>
+
+  <footer>
+    near-black #0E1116 · grid #2a2f37 · brand cyan #39BFC6 → head #a8eef2 · REC red #ff5454 (one use)<br>
+    reduced-motion respected · synthetic audio envelope · throwaway exploration, not the shipped panel
+  </footer>
+</div>
+
+<script>
+const REDUCED = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const C = { panel:'#0E1116', grid:'#2a2f37', dim:'#1b2026', cyan:[57,191,198], cyanHi:[168,238,242], rec:'#ff5454' };
+
+// ---- synthetic speech-like amplitude (0..1) -----------------------------------
+let speaking = true;
+const speakBtn = document.getElementById('speak'), quietBtn = document.getElementById('quiet');
+speakBtn.onclick = ()=>{speaking=true; speakBtn.classList.add('on'); quietBtn.classList.remove('on');};
+quietBtn.onclick = ()=>{speaking=false; quietBtn.classList.add('on'); speakBtn.classList.remove('on');};
+let env = 0;
+function amplitude(t){
+  // pseudo-speech: syllable bursts + pauses, smoothed. quiet = gentle floor.
+  const burst = Math.max(0, Math.sin(t*7.3) ) * Math.max(0, Math.sin(t*2.1+1))**2;
+  const flut  = 0.5+0.5*Math.sin(t*13.0);
+  const gate  = (Math.sin(t*0.9)>-0.25)?1:0;          // occasional pauses
+  const target = speaking ? Math.min(1, (0.25 + burst*0.9*flut)*gate) : 0.06+0.04*Math.sin(t*1.4);
+  env += (target-env)*0.18;                            // smooth attack/decay
+  return Math.max(0, Math.min(1, env));
+}
+
+// ---- a dot-matrix disc: concentric rings of dots -----------------------------
+function makeDisc(S){
+  const cx=S/2, cy=S/2, R=S*0.40, r0=S*0.085, NR=9;
+  const dots=[];
+  for(let i=0;i<NR;i++){
+    const rad = r0 + (R-r0)*(i/(NR-1));
+    const n = Math.max(6, Math.round(46*rad/R));
+    for(let k=0;k<n;k++){
+      const a = (k/n)*Math.PI*2 - Math.PI/2;          // start at 12 o'clock
+      dots.push({x:cx+Math.cos(a)*rad, y:cy+Math.sin(a)*rad, a:((a+Math.PI/2)%(Math.PI*2)+Math.PI*2)%(Math.PI*2), ring:i, rad});
+    }
+  }
+  return {cx,cy,R,r0,NR,dots};
+}
+const mix=(a,b,t)=>a.map((v,i)=>Math.round(v+(b[i]-v)*t));
+const rgba=(c,al)=>`rgba(${c[0]},${c[1]},${c[2]},${al})`;
+function dot(ctx,x,y,r,fill,glow){
+  if(glow){ctx.shadowColor=fill;ctx.shadowBlur=glow;} else ctx.shadowBlur=0;
+  ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fillStyle=fill;ctx.fill();ctx.shadowBlur=0;
+}
+function recDot(ctx,d,S,t){
+  const a=-Math.PI/2, rad=d.R + S*0.055, x=d.cx+Math.cos(a)*rad, y=d.cy+Math.sin(a)*rad;
+  const p=0.6+0.4*Math.sin(t*3);
+  dot(ctx,x,y,S*0.016,C.rec, 10*p);
+}
+function drawGrid(ctx,disc,S){            // the dim dot-matrix substrate
+  for(const d of disc.dots) dot(ctx,d.x,d.y,S*0.0085, C.grid, 0);
+}
+
+// ---- four variations ----------------------------------------------------------
+const SECT=120;
+function makeVariation(kind){
+  const hist=new Float32Array(SECT);      // amplitude history around the ring
+  return function(ctx,disc,S,t,amp){
+    drawGrid(ctx,disc,S);
+    const dotR=S*0.0125, NR=disc.NR;
+    // advance clockwise write-head once per frame-ish (time → angle)
+    const head = (t*0.55) % (Math.PI*2);                 // clockwise playhead angle
+    const hi = Math.floor(head/(Math.PI*2)*SECT);
+    hist[hi] = amp;
+
+    if(kind==='polar'){
+      // POLAR SCROLL — each angle keeps its amplitude; bloom outward; fades clockwise behind head
+      for(const d of disc.dots){
+        const si=Math.floor(d.a/(Math.PI*2)*SECT);
+        const a=hist[si];
+        const lit = d.ring <= a*NR;
+        let age=((head-d.a)%(Math.PI*2)+Math.PI*2)%(Math.PI*2); age/= (Math.PI*2); // 0=just written
+        if(lit){
+          const b=Math.max(0,1-age*1.15);
+          dot(ctx,d.x,d.y,dotR, rgba(mix(C.cyan,C.cyanHi,b*b), 0.35+0.65*b), b>0.7?8*b:0);
+        }
+      }
+    } else if(kind==='comet'){
+      // ORBITING COMET — bright head + trailing tail, amplitude blooms near head
+      for(const d of disc.dots){
+        let age=((head-d.a)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)/(Math.PI*2);
+        const inTail = age<0.42;
+        const reach = (0.45+0.55*amp)*NR;                // how many rings light near head
+        if(inTail && d.ring<=reach*(1-age*0.6)){
+          const b=Math.max(0,1-age/0.42);
+          dot(ctx,d.x,d.y,dotR*(0.8+0.5*b), rgba(mix(C.cyan,C.cyanHi,b*b),0.3+0.7*b), b>0.6?12*b:0);
+        }
+      }
+    } else if(kind==='sonar'){
+      // SONAR SWEEP — rotating sweep line; lit arc reaches out by amplitude; calm
+      for(const d of disc.dots){
+        let age=((head-d.a)%(Math.PI*2)+Math.PI*2)%(Math.PI*2)/(Math.PI*2);
+        const reach=(0.5+0.5*amp)*NR;
+        if(age<0.6 && d.ring<=reach){
+          const b=Math.max(0,1-age/0.6)**1.4;
+          dot(ctx,d.x,d.y,dotR, rgba(mix(C.cyan,C.cyanHi,b), 0.18+0.7*b), b>0.85?10:0);
+        }
+      }
+    } else if(kind==='spin'){
+      // CONCENTRIC + SPIN — rings pulse outward (radial) while the field rotates clockwise
+      const spin=t*0.5;
+      const pulse=(t*2.2)% (NR+3);
+      for(const d of disc.dots){
+        const ang=d.a+spin;
+        const x=disc.cx+Math.cos(ang-Math.PI/2)*d.rad, y=disc.cy+Math.sin(ang-Math.PI/2)*d.rad;
+        const near=Math.max(0,1-Math.abs(d.ring-pulse)/1.6);
+        const b=near*(0.35+0.65*amp);
+        if(b>0.05) dot(ctx,x,y,dotR, rgba(mix(C.cyan,C.cyanHi,b),0.2+0.8*b), b>0.7?9*b:0);
+      }
+    }
+    recDot(ctx,disc,S,t);
+  };
+}
+
+// ---- wire up the four cards ---------------------------------------------------
+const VARS=[
+  {tag:'A · polar scroll', name:'Polar waveform', kind:'polar',
+   desc:'Your last few seconds wrapped into a clock. Each angle holds its loudness (radial bloom); the wave scrolls clockwise and fades behind the playhead. The most literal "circular waveform".'},
+  {tag:'B · orbiting comet', name:'Comet + tail', kind:'comet',
+   desc:'A bright head orbits clockwise with a fading trail; loudness blooms the rings near the head outward. Closest to your reference sketch.'},
+  {tag:'C · sonar sweep', name:'Radar sweep', kind:'sonar',
+   desc:'A sweep line rotates clockwise; dots light as it passes and the lit arc reaches further out the louder you are. Calm, instrument-like.'},
+  {tag:'D · concentric + spin', name:'Pulse + spin', kind:'spin',
+   desc:'Rings pulse outward from the centre (radial) while the whole dot-field rotates clockwise — both motions at once, most overtly "circular".'},
+];
+const grid=document.getElementById('grid');
+const insts=[];
+for(const v of VARS){
+  const card=document.createElement('div');card.className='card';
+  card.innerHTML=`<div class="stage"><canvas></canvas></div>
+    <div class="meta"><span class="tag">${v.tag}</span></div>
+    <div class="name">${v.name}</div><div class="desc">${v.desc}</div>`;
+  grid.appendChild(card);
+  const cv=card.querySelector('canvas'), ctx=cv.getContext('2d');
+  insts.push({cv,ctx,draw:makeVariation(v.kind),disc:null});
+}
+function resize(){
+  const dpr=Math.min(2,devicePixelRatio||1);
+  for(const it of insts){
+    const r=it.cv.getBoundingClientRect();const S=Math.max(1,Math.round(r.width));
+    it.cv.width=S*dpr;it.cv.height=S*dpr;it.ctx.setTransform(dpr,0,0,dpr,0,0);
+    it.S=S;it.disc=makeDisc(S);
+  }
+}
+addEventListener('resize',resize);
+
+function frame(ms){
+  const t=ms/1000, amp=amplitude(t);
+  for(const it of insts){
+    it.ctx.clearRect(0,0,it.S,it.S);
+    it.draw(it.ctx,it.disc,it.S,t,amp);
+  }
+  if(!REDUCED) requestAnimationFrame(frame);
+}
+resize();
+if(REDUCED){ // one static representative frame
+  for(const it of insts){it.draw(it.ctx,it.disc,it.S,1.2,0.7);}
+} else requestAnimationFrame(frame);
+</script>
+</body>
+</html>

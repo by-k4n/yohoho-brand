@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yohoho — done animation v2 (on the bar) · #14</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=JetBrains+Mono:wght@400;500;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0c10;--panel:#0E1116;--cyan:#39BFC6;--ink:#cdd6da;--muted:#6b7680}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 28px 80px}
+  header{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-bottom:6px}
+  .word{font-family:Doto,monospace;font-weight:800;font-size:34px;letter-spacing:2px;color:var(--cyan)}
+  h1{font-size:15px;font-weight:500;color:var(--muted);margin:0}
+  .sub{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:860px;margin:14px 0 16px}
+  .sub b{color:var(--ink);font-weight:600}
+  .layout{display:flex;gap:40px;flex-wrap:wrap;align-items:flex-start}
+  .hero{display:flex;flex-direction:column;align-items:center;gap:12px}
+  .htile{width:300px;height:300px;border-radius:36px;overflow:hidden;background:radial-gradient(120% 120% at 50% 50%, #141922 0%, var(--panel) 58%, #080a0e 100%);border:1px solid #1b212a}
+  .htile canvas{width:100%;height:100%;display:block}
+  .cap{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--muted)}
+  .cell{display:flex;flex-direction:column;align-items:center;gap:8px}
+  .square{width:104px;height:104px;border-radius:20px;overflow:hidden;background:radial-gradient(120% 120% at 50% 50%, #141922 0%, var(--panel) 58%, #080a0e 100%);border:1px solid #1b212a}
+  .square canvas{width:100%;height:100%;display:block}
+  .controls{display:flex;flex-direction:column;gap:10px;min-width:260px}
+  .btns{display:flex;gap:8px;flex-wrap:wrap}
+  button{font-family:'JetBrains Mono',monospace;font-size:12px;background:#12161c;color:var(--ink);border:1px solid #232a31;border-radius:8px;padding:8px 12px;cursor:pointer;transition:.15s}
+  button:hover{border-color:var(--cyan)} button.on{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 0 1px var(--cyan) inset}
+  .gatewrap{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:10px;margin:2px 0}
+  .gatewrap span:first-child{width:104px}
+  .gatewrap input[type=range]{flex:1;accent-color:var(--cyan)}
+  footer{margin-top:28px;color:var(--muted);font-size:12px;font-family:'JetBrains Mono',monospace;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><span class="word">yohoho</span><h1>done v2 — letter-by-letter + flash · backlog #14</h1></header>
+  <p class="sub">Snappy build, then <b>yohoho</b> assembles <b>one letter at a time</b> (each pops bright), a <b>flash</b> when
+    complete, then it <b>holds</b> fully lit before fading. Tune <b>build speed</b> and <b>yohoho hold</b> independently — so a
+    faster lead-up doesn't cost you screen-time on the payoff.</p>
+  <div class="layout">
+    <div class="hero"><div class="htile"><canvas id="hero"></canvas></div><div class="cap" id="cap">done v2 (loops)</div></div>
+    <div class="controls">
+      <div class="btns"><button id="replay">↻ replay</button><button id="slow">slow-mo: off</button>
+        <button id="style" class="on">reveal: pop</button></div>
+      <div class="gatewrap"><span>build&nbsp;speed</span><input id="speed" type="range" min="70" max="180" value="110"><span id="speedv">1.10×</span></div>
+      <div class="gatewrap"><span>yohoho&nbsp;hold</span><input id="hold" type="range" min="40" max="160" value="50"><span id="holdv">0.50s</span></div>
+      <div class="cap" id="lenv">total ≈ —</div>
+    </div>
+  </div>
+  <div class="cell" style="margin-top:26px"><div class="square"><canvas id="t1"></canvas></div><div class="cap">104px · true size</div></div>
+  <footer>ring completes → ✓ → yohoho letters pop in one at a time → flash → hold → fade · same ring / bar / Doto / muted dots as the message bar</footer>
+</div>
+
+<script>
+const PI=Math.PI, TAU=2*PI;
+const CY=[57,191,198], HOT=[234,253,255], LUM=[205,225,255], MUTEDDOT='rgb(22,41,43)';
+const COLS=28, DOTR=0.32;
+const lerp3=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+const rgb=c=>`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+const cl=x=>x<0?0:x>1?1:x, easeOut=x=>1-(1-cl(x))**2, bump=x=>Math.sin(cl(x)*PI);
+const easeOutBack=x=>{const c1=1.70158,c3=c1+1;x=cl(x);return 1+c3*(x-1)**3+c1*(x-1)**2;};
+const $=id=>document.getElementById(id);
+
+function makePanel(ctx,S){
+  const step=S/COLS, rowStep=step*0.866, Rin=S*0.25, Rout=S*0.40, soft=step*0.7, cx=S/2, cy=S/2;
+  const Wb=S*0.95, innerW=Wb-step*2.4;
+  ctx.font=`800 100px "Doto",monospace`;
+  const fontPx=Math.min(S*0.135, 100*innerW/Math.max(1,ctx.measureText('transcribing...').width));
+  const Hb=fontPx*1.75, r=Hb/2;
+  const x0=cx-Wb/2, x1=cx+Wb/2, y0=cy-Hb/2, y1=cy+Hb/2, dots=[], rows=Math.ceil(S/rowStep)+1;
+  for(let gy=0;gy<rows;gy++){ const y=(gy+0.5)*rowStep, off=(gy&1)?step/2:0;
+    for(let gx=-1;gx<=COLS;gx++){ const x=(gx+0.5)*step+off; if(x<0||x>S) continue;
+      const dx=x-cx,dy=y-cy,d=Math.hypot(dx,dy);
+      const ringEdge=(d<Rin-soft||d>Rout+soft)?0:Math.max(0,Math.min(1,Math.min((Rout+soft)-d,d-(Rin-soft))/step));
+      let inBand=false; if(x>=x0&&x<=x1&&y>=y0&&y<=y1){ const clx=Math.max(x0+r,Math.min(x1-r,x)); inBand=Math.hypot(x-clx,y-cy)<=r-step*0.15; }
+      if(!inBand && ringEdge<=0) continue;
+      const ang=Math.atan2(dy,dx), ta=((ang+PI/2)%TAU+TAU)%TAU;
+      dots.push({x,y,ringEdge,inBand,ta, bp:cl((d-Rin)/(Rout-Rin))}); } }
+  return {dots, dotR:step*DOTR, Wb, Hb, fontPx};
+}
+function litDot(ctx,x,y,r,col,b){ b=cl(b); if(b<0.04)return; const lit=lerp3(col,LUM,b*0.35);
+  ctx.globalAlpha=0.18*b;ctx.beginPath();ctx.arc(x,y,r*1.8,0,7);ctx.fillStyle=rgb(col);ctx.fill();
+  ctx.globalAlpha=0.30+0.70*b;ctx.beginPath();ctx.arc(x,y,r,0,7);ctx.fillStyle=rgb(lit);ctx.fill(); ctx.globalAlpha=1; }
+
+function drawCheck(ctx,cx,cy,P,dr,alpha,flash){
+  const s=P.Hb*0.42, col=lerp3(CY,HOT,flash);
+  const A={x:cx-s*1.1,y:cy+s*0.06}, B={x:cx-s*0.28,y:cy+s*0.6}, C={x:cx+s*1.25,y:cy-s*0.72};
+  const l1=Math.hypot(B.x-A.x,B.y-A.y), l2=Math.hypot(C.x-B.x,C.y-B.y), gap=dr*2.3;
+  for(let d=0;d<=l1+l2;d+=gap){ let x,y; if(d<=l1){const u=d/l1;x=A.x+(B.x-A.x)*u;y=A.y+(B.y-A.y)*u;} else {const u=(d-l1)/l2;x=B.x+(C.x-B.x)*u;y=B.y+(C.y-B.y)*u;} litDot(ctx,x,y,dr*1.05,col,alpha); }
+}
+function drawWord(ctx,cx,P,cy,revealProg,style,wordFlash,alphaMul){
+  ctx.save(); ctx.textBaseline='alphabetic'; ctx.textAlign='left'; ctx.font=`800 ${P.fontPx}px "Doto",monospace`;
+  ctx.shadowColor=rgb(CY); ctx.shadowBlur=P.fontPx*0.30;
+  const fm=ctx.measureText('Hg'); const yc=cy+(fm.fontBoundingBoxAscent-fm.fontBoundingBoxDescent)/2;
+  const word='yohoho', n=6, widths=[]; let fullW=0;
+  for(let i=0;i<n;i++){ const w=ctx.measureText(word[i]).width; widths.push(w); fullW+=w; }
+  let x=cx-fullW/2;
+  for(let i=0;i<n;i++){ const w=widths[i], lt=revealProg*n - i;
+    if(lt>0){ const aIn=cl(lt/0.45), lflash=(lt<1)?cl(1-lt):0, fl=Math.max(lflash,wordFlash);
+      const col=lerp3(CY,HOT,fl), lit=lerp3(col,LUM,0.30);
+      let dy=0; if(style==='drop' && lt<1.25){ dy=-(1-easeOutBack(cl(lt)))*P.Hb*1.0; }
+      ctx.globalAlpha=cl(aIn*alphaMul); ctx.fillStyle=rgb(lit); ctx.fillText(word[i], x, yc+dy); }
+    x+=w; }
+  ctx.restore(); ctx.globalAlpha=1;
+}
+
+function drawDone(tile,t,TH,style){
+  const ctx=tile.ctx,P=tile.panel,S=tile.S,cx=S/2,cy=S/2,dr=P.dotR;
+  ctx.clearRect(0,0,S,S); if(t>=TH.tEnd) return;
+  const head=easeOut(Math.min(1,t/TH.dRing))*TAU, ringFlash=(t>=TH.t1&&t<TH.t1+0.09)?1-(t-TH.t1)/0.09:0;
+  for(const o of P.dots){
+    if(o.inBand){ ctx.globalAlpha=1; ctx.fillStyle=MUTEDDOT; ctx.beginPath(); ctx.arc(o.x,o.y,dr*0.95,0,7); ctx.fill(); continue; }
+    if(o.ringEdge<=0) continue;
+    let rb; if(t<TH.t1) rb=(o.ta<=head)?1:0.12; else if(t<TH.t2) rb=1-0.86*((t-TH.t1)/TH.dCheck); else rb=0.14;
+    rb=Math.max(rb,ringFlash); const col=lerp3(CY,HOT,ringFlash), lit=lerp3(col,LUM,cl(rb)*0.35), er=dr*o.ringEdge;
+    ctx.globalAlpha=0.26+0.6*cl(rb); ctx.beginPath(); ctx.arc(o.x,o.y,er,0,7); ctx.fillStyle=rgb(lit); ctx.fill();
+  }
+  ctx.globalAlpha=1;
+  if(t>=TH.t1 && t<TH.t2+0.12){ let ca; const cp=t-TH.t1;
+    if(cp<0.10) ca=cp/0.10; else if(t<TH.t2) ca=1; else ca=Math.max(0,1-(t-TH.t2)/0.12);
+    drawCheck(ctx,cx,cy,P,dr,ca,(cp<0.10)?1-cp/0.10:0); }
+  if(t>=TH.t2){ let rp,wf=0,am=1;
+    if(t<TH.t3) rp=(t-TH.t2)/TH.dReveal;
+    else { rp=1; wf=(t<TH.t3+0.13)?1-(t-TH.t3)/0.13:0; if(t>=TH.t4) am=Math.max(0,1-(t-TH.t4)/TH.dFade); }
+    drawWord(ctx,cx,P,cy,rp,style,wf,am); }
+}
+
+const tiles=[{cv:$('hero')},{cv:$('t1')}].map(t=>({cv:t.cv,ctx:t.cv.getContext('2d'),S:0,panel:null}));
+function setup(t){ const dpr=Math.min(2,devicePixelRatio||1), b=t.cv.getBoundingClientRect(); t.S=Math.round(b.width);
+  t.cv.width=t.S*dpr;t.cv.height=t.S*dpr;t.ctx.setTransform(dpr,0,0,dpr,0,0); t.panel=makePanel(t.ctx,t.S); }
+function resize(){ for(const t of tiles) setup(t); }
+addEventListener('resize',resize);
+
+const speedEl=$('speed'), holdEl=$('hold');
+function thresholds(){ const sp=+speedEl.value/100, dRing=0.26/sp,dCheck=0.24/sp,dReveal=0.34/sp,dHold=+holdEl.value/100,dFade=0.22;
+  const t1=dRing,t2=t1+dCheck,t3=t2+dReveal,t4=t3+dHold,tEnd=t4+dFade; return {dRing,dCheck,dReveal,dHold,dFade,t1,t2,t3,t4,tEnd}; }
+speedEl.oninput=()=>{$('speedv').textContent=(+speedEl.value/100).toFixed(2)+'×';};
+holdEl.oninput=()=>{$('holdv').textContent=(+holdEl.value/100).toFixed(2)+'s';};
+
+let slow=false, style='pop', vt=0, last=0;
+$('slow').onclick=e=>{slow=!slow;e.target.classList.toggle('on',slow);e.target.textContent='slow-mo: '+(slow?'on':'off');};
+$('style').onclick=e=>{style=style==='pop'?'drop':'pop';e.target.textContent='reveal: '+style;e.target.classList.toggle('on',true);};
+$('replay').onclick=()=>{vt=0;};
+function frame(ms){ let dt=last?(ms-last)/1000:0; last=ms; if(dt>0.1)dt=0.1; vt+=dt*(slow?0.3:1);
+  const TH=thresholds(), cyc=TH.tEnd+0.55, t=vt%cyc;
+  $('lenv').textContent='total ≈ '+TH.tEnd.toFixed(2)+'s  (build '+(TH.t3).toFixed(2)+'s + hold '+TH.dHold.toFixed(2)+'s)';
+  for(const tl of tiles) drawDone(tl,t,TH,style);
+  requestAnimationFrame(frame); }
+(document.fonts?document.fonts.load('800 40px "Doto"'):Promise.resolve()).then(()=>resize()).catch(()=>{});
+resize(); requestAnimationFrame(frame);
+</script>
+</body></html>

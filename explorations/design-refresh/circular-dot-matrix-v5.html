@@ -1,0 +1,152 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>yohoho — v5 pixel ring + gradient (#14)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Doto:wght@400;600;800&family=JetBrains+Mono:wght@400;600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{--bg:#0a0c10;--panel:#0E1116;--cyan:#39BFC6;--ink:#cdd6da;--muted:#6b7680}
+  *{box-sizing:border-box}
+  html,body{margin:0;background:var(--bg);color:var(--ink);font-family:Inter,system-ui,sans-serif}
+  .wrap{max-width:1180px;margin:0 auto;padding:40px 28px 80px}
+  header{display:flex;align-items:baseline;gap:18px;flex-wrap:wrap;margin-bottom:6px}
+  .word{font-family:Doto,monospace;font-weight:800;font-size:34px;letter-spacing:2px;color:var(--cyan)}
+  h1{font-size:15px;font-weight:500;color:var(--muted);margin:0}
+  .sub{color:var(--muted);font-size:13.5px;line-height:1.65;max-width:800px;margin:14px 0 22px}
+  .sub b{color:var(--ink);font-weight:600}
+  .controls{display:flex;gap:10px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+  button{font-family:'JetBrains Mono',monospace;font-size:12.5px;background:#12161c;color:var(--ink);border:1px solid #232a31;border-radius:8px;padding:8px 14px;cursor:pointer;transition:.15s}
+  button:hover{border-color:var(--cyan)} button.on{border-color:var(--cyan);color:var(--cyan);box-shadow:0 0 0 1px var(--cyan) inset}
+  button:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  .hint{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted)}
+  #micnote{display:none;color:#ff5454;font-size:12px;font-family:'JetBrains Mono',monospace;margin:-4px 0 18px}
+  .grid{display:grid;grid-template-columns:1fr;gap:18px;max-width:560px;margin:0 auto}
+  .stage{aspect-ratio:1/1;width:100%;background:radial-gradient(120% 120% at 50% 50%, #141922 0%, var(--panel) 58%, #080a0e 100%);border-radius:18px;position:relative;overflow:hidden;border:1px solid #161b22}
+  canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+  .gatewrap{max-width:560px;margin:16px auto 0;font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--muted);display:flex;align-items:center;gap:10px}
+  .gatewrap input[type=range]{flex:1;accent-color:var(--cyan)}
+  footer{margin-top:30px;color:var(--muted);font-size:12px;font-family:'JetBrains Mono',monospace;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header><span class="word">yohoho</span><h1>v5 — pixel ring + gradient · backlog #14</h1></header>
+  <p class="sub">v4 exactly (fine pixel ring, per-arc tone bloom, idle twinkle, gate + sensitivity) with a
+    <b>cyan → accent radial gradient</b> — inner dots cyan, fading to the accent at the outer edge, so the
+    bloom <b>and the idle twinkle</b> gain depth. <b>Toggle the accent</b>: coral / indigo / teal. No recording dot.</p>
+  <div class="controls">
+    <button id="mic">🎤 use my mic</button>
+    <button id="speak" class="on">● synthetic</button><button id="quiet">○ quiet</button>
+    <button id="grad">accent: indigo ▸</button>
+    <span class="hint">click “use my mic”, allow, then speak</span>
+  </div>
+  <p id="micnote">Mic needs a secure origin — open at <b>http://localhost:8777/circular-dot-matrix-v5.html</b>, then click “use my mic”.</p>
+  <div class="grid"><div class="stage"><canvas id="cv"></canvas></div></div>
+  <div class="gatewrap"><span>noise&nbsp;gate</span><input id="gate" type="range" min="0" max="100" value="22"><span id="gateval">0.15</span></div>
+  <div class="gatewrap"><span>sensitivity</span><input id="sens" type="range" min="0" max="100" value="10"><span id="sensval">10</span></div>
+  <footer>v4 + radial gradient cyan #39BFC6 → indigo #786EFA · pixel ring, tone bloom, twinkle · no REC dot</footer>
+</div>
+
+<script>
+const REDUCED=matchMedia('(prefers-reduced-motion: reduce)').matches, PI=Math.PI, TAU=2*PI;
+const CY=[57,191,198], LUM=[205,225,255];
+const ACCENTS=[{n:'indigo',c:[120,110,250]},{n:'red',c:[255,84,84]},{n:'teal',c:[80,210,170]}];
+let accentIdx=0;                                                   // default: indigo (user-settable)
+const lerp3=(a,b,t)=>[a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,a[2]+(b[2]-a[2])*t];
+const rgb=c=>`rgb(${c[0]|0},${c[1]|0},${c[2]|0})`;
+const gradEl=document.getElementById('grad');
+gradEl.onclick=()=>{accentIdx=(accentIdx+1)%ACCENTS.length; gradEl.textContent='accent: '+ACCENTS[accentIdx].n+' ▸';};
+
+// ---- audio ----
+let speaking=true, useMic=false, analyser=null, freqData=null, sampleRate=48000;
+const sb=document.getElementById('speak'),qb=document.getElementById('quiet'),micBtn=document.getElementById('mic');
+sb.onclick=()=>{speaking=true;sb.classList.add('on');qb.classList.remove('on')};
+qb.onclick=()=>{speaking=false;qb.classList.add('on');sb.classList.remove('on')};
+micBtn.onclick=async()=>{
+  if(useMic){useMic=false;micBtn.classList.remove('on');micBtn.textContent='🎤 use my mic';return;}
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,autoGainControl:false}});
+    const AC=window.AudioContext||window.webkitAudioContext, ac=new AC(); await ac.resume(); sampleRate=ac.sampleRate;
+    const src=ac.createMediaStreamSource(stream);
+    analyser=ac.createAnalyser(); analyser.fftSize=2048; analyser.smoothingTimeConstant=0.5;
+    freqData=new Uint8Array(analyser.frequencyBinCount); src.connect(analyser);
+    useMic=true; micBtn.classList.add('on'); micBtn.textContent='🎤 mic on — speak';
+  }catch(e){ document.getElementById('micnote').style.display='block'; micBtn.textContent='🎤 mic blocked'; }
+};
+const sensEl=document.getElementById('sens'), sensValEl=document.getElementById('sensval');
+sensEl.addEventListener('input',()=>sensValEl.textContent=sensEl.value);
+function shape(raw){const sv=sensEl.value/100, gain=0.7+sv*2.3, g=2.7-sv*1.6; return Math.pow(Math.min(1,Math.max(0,raw*gain)),g);}
+function energyAt(frac,t){
+  if(useMic && analyser){const hz=80*Math.pow(6000/80,frac), binHz=sampleRate/analyser.fftSize;
+    const i=Math.max(1,Math.min(freqData.length-1,Math.round(hz/binHz))); return shape((freqData[i]/255)*(1+frac*1.1));}
+  if(!speaking) return 0;
+  const f1=Math.exp(-((frac-0.16-0.04*Math.sin(t*1.7))**2)/0.02);
+  const f2=Math.exp(-((frac-0.46-0.07*Math.sin(t*2.3+1))**2)/0.03);
+  const f3=Math.exp(-((frac-0.82)**2)/0.05)*Math.max(0,Math.sin(t*8))*0.7;
+  const burst=Math.max(0,Math.sin(t*6.1))*Math.max(0,Math.sin(t*2.0+1))**2;
+  return shape((0.12+0.9*burst)*(f1*0.9+f2*0.8+f3));
+}
+function voiceLevel(t){
+  if(useMic && analyser){const binHz=sampleRate/analyser.fftSize; let s=0,n=0;
+    for(let hz=200;hz<=3000;hz+=binHz){s+=freqData[Math.round(hz/binHz)];n++;} return Math.min(1,(s/n/255)*1.6);}
+  if(!speaking) return 0;
+  const burst=Math.max(0,Math.sin(t*6.1))*Math.max(0,Math.sin(t*2.0+1))**2; return Math.min(1,0.04+burst*1.1);
+}
+
+// ---- gate ----
+const gateEl=document.getElementById('gate'), gateValEl=document.getElementById('gateval');
+let gateOpen=false, hold=0, activeMix=0;
+function tuned(){const v=gateEl.value/100; const open=0.04+v*0.5; return {open,close:open*0.62};}
+function updateGate(vl,dt){const T=tuned(); gateValEl.textContent=T.open.toFixed(2);
+  if(vl>T.open){gateOpen=true;hold=0.45;} else if(gateOpen){if(vl<T.close){hold-=dt;if(hold<=0)gateOpen=false;}else hold=0.45;}
+  activeMix+=((gateOpen?1:0)-activeMix)*(gateOpen?0.4:0.06);}
+
+// ---- pixel grid → ring (v4 geometry) ----
+const ASECT=64;
+function makeGrid(S){
+  const cx=S/2, cy=S/2, cols=18, step=S/cols, Rin=S*0.245, Rout=S*0.46, soft=step*0.6, dots=[];
+  for(let gx=0;gx<cols;gx++)for(let gy=0;gy<cols;gy++){
+    const x=(gx+0.5)*step, y=(gy+0.5)*step, dx=x-cx, dy=y-cy, d=Math.hypot(dx,dy);
+    if(d<Rin-soft || d>Rout+soft) continue;
+    const edge=Math.max(0,Math.min(1, Math.min((Rout+soft)-d, d-(Rin-soft))/step));   // soft round boundary (anti-alias the pixel circle)
+    const ang=Math.atan2(dy,dx), ta=((ang+PI/2)%TAU+TAU)%TAU;
+    dots.push({x,y, edge, bp:Math.max(0,Math.min(1,(d-Rin)/(Rout-Rin))), sbin:Math.floor(ta/TAU*ASECT)%ASECT,
+      ph:Math.random()*6.28, sp:0.7+Math.random()*2.2, tamp:(Math.random()<0.18?0.55+Math.random()*0.4:0.07+Math.random()*0.12)});
+  }
+  return {cx,cy,step,dots, dotR:step*0.21};
+}
+const cv=document.getElementById('cv'), ctx=cv.getContext('2d');
+let grid=null,S=0, sec=new Float32Array(ASECT);
+function resize(){const dpr=Math.min(2,devicePixelRatio||1);const r=cv.getBoundingClientRect();S=Math.max(1,Math.round(r.width));
+  cv.width=S*dpr;cv.height=S*dpr;ctx.setTransform(dpr,0,0,dpr,0,0);grid=makeGrid(S);}
+addEventListener('resize',resize);resize();
+
+function frame(ms){
+  const t=ms/1000, dt=1/60; ctx.clearRect(0,0,S,S);
+  if(useMic && analyser) analyser.getByteFrequencyData(freqData);
+  updateGate(voiceLevel(t),dt);
+  for(let s=0;s<ASECT;s++){const ta=(s+0.5)/ASECT*TAU, fold=Math.min(ta,TAU-ta)/PI; sec[s]+=(energyAt(1-fold,t)-sec[s])*(useMic?0.5:0.34);}
+  const dr=grid.dotR;
+  for(const o of grid.dots){
+    const e=sec[o.sbin], within=e-o.bp;
+    const aBloom=(within>0?1:Math.max(0,1+within/0.12))*e*activeMix;
+    const aTw=o.tamp*Math.pow(Math.max(0,Math.sin(t*o.sp+o.ph)),5)*(1-activeMix);
+    const b=Math.max(aBloom,aTw);
+    const er=dr*o.edge;                          // edge-faded radius → rounder boundary
+    if(b<=0.04){ctx.globalAlpha=1;ctx.beginPath();ctx.arc(o.x,o.y,er,0,7);ctx.fillStyle='#23282f';ctx.fill();continue;}
+    const g=lerp3(CY,ACCENTS[accentIdx].c,o.bp);
+    const lit=lerp3(g,LUM,b*0.32);
+    ctx.globalAlpha=0.18*b;ctx.beginPath();ctx.arc(o.x,o.y,er*1.7,0,7);ctx.fillStyle=rgb(g);ctx.fill();
+    ctx.globalAlpha=0.30+0.70*b;ctx.beginPath();ctx.arc(o.x,o.y,er*(1+0.25*aBloom),0,7);ctx.fillStyle=rgb(lit);ctx.fill();
+    ctx.globalAlpha=1;
+  }
+  if(!REDUCED) requestAnimationFrame(frame);
+}
+if(REDUCED){updateGate(0.7,1);for(let s=0;s<ASECT;s++){const ta=(s+0.5)/ASECT*TAU;sec[s]=energyAt(1-Math.min(ta,TAU-ta)/PI,1.1);}frame(1.1);}
+else requestAnimationFrame(frame);
+</script>
+</body>
+</html>
