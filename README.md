@@ -11,9 +11,9 @@ that led here.
 ## Structure
 
 ```
-README.md            what this repo is
-tokens/tokens.json   machine-readable token seed (color, type, principles)
-docs/brand.md        the brand documentation
+README.md                   what this repo is
+tokens/yohoho.tokens.json   machine-readable token seed (DTCG format)
+docs/brand.md               the brand documentation
 assets/              the identity system - generator, icon sources, SVGs, ramps
 explorations/        design-refresh mockups, logo concepts, sketches, history
 ```
@@ -27,6 +27,10 @@ explorations/        design-refresh mockups, logo concepts, sketches, history
 
 ## Tokens
 
-`tokens/tokens.json` is a small, honest seed grounded in the real generator
-constants, not a finished token system. Distribution tooling (Style Dictionary
-or similar, and platform exports) is future work.
+`tokens/yohoho.tokens.json` is a small, honest seed grounded in the real
+generator constants, not a finished token system. It follows the DTCG (W3C
+Design Tokens Community Group) draft format, so each token carries `$value`,
+`$type`, and a documented `$description`. Colors use the hex-string form of the
+color type for direct Style Dictionary v4 / Tokens Studio consumption.
+Distribution tooling (Style Dictionary or similar, and platform exports) is
+future work.

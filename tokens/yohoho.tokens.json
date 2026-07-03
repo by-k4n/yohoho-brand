@@ -1,0 +1,179 @@
+{
+  "$description": "yohoho design tokens in DTCG (W3C Design Tokens Community Group) draft format. A small, honest seed grounded in assets/generate.py (the parametric brand generator), not a finished distribution system. Every value here is verified against that generator's constants.",
+  "color": {
+    "$description": "The yohoho palette, deliberately narrow. Colors use the HEX STRING form of the DTCG color type (for example \"#39BFC6\") because that is what Style Dictionary v4 and Tokens Studio consume directly today. The newest DTCG editors draft prefers a structured color object ({ colorSpace, components, alpha }); when tooling settles on it these string values convert losslessly. Every color is mode-specific: match the token to the surface and never invert a mark onto the opposite ground.",
+    "brand": {
+      "$description": "The single identity color. One hue carries the whole brand.",
+      "cyan": {
+        "$value": "#39BFC6",
+        "$type": "color",
+        "$description": "The one identity color. Constant across light and dark, never re-tinted. It is the voiceprint wave body in the mark and the only accent in functional UI, where it appears solely in the status ring."
+      }
+    },
+    "record": {
+      "$description": "The record signal. This group holds the ONLY red in the entire product: exactly one red dot, ever, and only as the REC dot. Red never appears anywhere else, in any state or on any surface.",
+      "rec": {
+        "$value": "#ff5454",
+        "$type": "color",
+        "$description": "The REC dot on dark surfaces (the live status panel). This is the 'yo' of yohoho: press record. Reserved exclusively for that single dot."
+      },
+      "record-light": {
+        "$value": "#D62F39",
+        "$type": "color",
+        "$description": "The REC dot variant for light surfaces, such as a printed or light-ground mark. Darkened from the dark-mode red so the dot holds contrast on a light field while reading as the same signal."
+      }
+    },
+    "peak": {
+      "$description": "The two brighter 'ho-ho' voiceprint peaks of the laugh figure (columns 3 and 5). The peak is the one color that flips between modes: the brand cyan stays fixed, so the peak carries the legibility margin where cyan goes soft.",
+      "dark": {
+        "$value": "#7DE8ED",
+        "$type": "color",
+        "$description": "The ho-ho peaks on dark. A lighter cyan that lifts the two peaks clear of the cyan wave body against black."
+      },
+      "light": {
+        "$value": "#0A5F67",
+        "$type": "color",
+        "$description": "The ho-ho peaks on light. Flips to deep teal so the figure keeps at least a 3:1 legibility margin where the bright cyan would wash out on a light ground."
+      }
+    },
+    "done": {
+      "$description": "The neutral 'done' dot: the single dot that lights when the transcript has landed. Neutral by design so completion reads as quiet, not as another accent.",
+      "dark": {
+        "$value": "#cdd6da",
+        "$type": "color",
+        "$description": "The done dot on dark surfaces."
+      },
+      "light": {
+        "$value": "#1F2327",
+        "$type": "color",
+        "$description": "The done dot on light surfaces."
+      }
+    },
+    "field": {
+      "$description": "The unlit dots of the lattice: the powered-but-dark background field the lit figure sits on. On dark it is the same neutral as the wordmark but held at roughly 12% so it reads as texture, not content.",
+      "dark": {
+        "$value": "#CDD6DA1F",
+        "$type": "color",
+        "$description": "Unlit lattice dots on dark, encoded as 8-digit hex (#RRGGBBAA): the trailing 1F is the alpha, 0x1F = 31/255 which is about 12%, matching the generator's ('#cdd6da', 0x1F) field constant. The low alpha keeps the field as faint texture beneath the lit figure."
+      },
+      "light": {
+        "$value": "#CFD7DA",
+        "$type": "color",
+        "$description": "Unlit lattice dots on light, fully opaque. A gentle grey texture; on light no alpha is needed because the tint itself is soft enough to sit behind the figure."
+      }
+    },
+    "surface": {
+      "$description": "Background surfaces the mark and UI sit on. Each is mode- and context-specific; the panel black in particular is load-bearing.",
+      "panel": {
+        "$value": "#000000",
+        "$type": "color",
+        "$description": "The status HUD background. Pitch black and never Liquid Glass: the panel is a non-activating, click-through window, and true black is what lets it read as a floating instrument rather than a system surface."
+      },
+      "bar": {
+        "$value": "#0a0a0c",
+        "$type": "color",
+        "$description": "Near-black chrome for bar and panel framing. A hair off pure black so edges separate from the panel without introducing a visible grey."
+      },
+      "page": {
+        "$value": "#0a0b0c",
+        "$type": "color",
+        "$description": "The dark page ground the mark is presented on (docs, README, marketing)."
+      },
+      "tile": {
+        "$value": "#181b1f",
+        "$type": "color",
+        "$description": "The rounded-square app-tile fill on dark: the icon background behind the mark for standalone icon use."
+      },
+      "light": {
+        "$value": "#e8edef",
+        "$type": "color",
+        "$description": "The light page and tile ground. One value serves both because on light the page and tile share a surface."
+      }
+    },
+    "wordmark": {
+      "$description": "The Doto wordmark color. Neutral, never cyan: the accent lives in the mark, so the word itself stays quiet.",
+      "dark": {
+        "$value": "#cdd6da",
+        "$type": "color",
+        "$description": "The wordmark on dark surfaces."
+      },
+      "light": {
+        "$value": "#1A1D1F",
+        "$type": "color",
+        "$description": "The wordmark on light surfaces."
+      }
+    }
+  },
+  "font": {
+    "$description": "Type primitives for the wordmark. See typography.wordmark for the composite that assembles these.",
+    "family": {
+      "$value": ["Doto", "ui-monospace", "SFMono-Regular", "Menlo", "monospace"],
+      "$type": "fontFamily",
+      "$description": "The wordmark typeface with fallbacks. Doto is a dot-matrix face; the fallbacks are monospace so the dot-grid rhythm survives if Doto fails to load. Used for the wordmark ONLY, never for functional UI text."
+    },
+    "weight": {
+      "$value": 450,
+      "$type": "fontWeight",
+      "$description": "The wordmark weight. 450 sits just above regular so the dot grid stays open and legible without going bold."
+    },
+    "roundness": {
+      "$value": 100,
+      "$type": "number",
+      "$description": "The Doto ROND variable-font axis, set to 100 (fully round dots). DTCG has no variation-axis type, so this is carried as a plain number; apply it as the OpenType/CSS 'ROND' axis value. Pairs with weight 450 for the wordmark only."
+    }
+  },
+  "typography": {
+    "$description": "Composite text styles. Only the wordmark is specified here; functional UI deliberately has no yohoho type token because it uses native-macOS system type.",
+    "wordmark": {
+      "$value": {
+        "fontFamily": "{font.family}",
+        "fontWeight": "{font.weight}",
+        "letterSpacing": "2px"
+      },
+      "$type": "typography",
+      "$description": "The wordmark style, and the wordmark ONLY: never set functional UI text in Doto. fontFamily and fontWeight alias the font primitives so there is one source of truth. letterSpacing is +2 tracking to open the dot matrix. Two DTCG gaps to note: fontSize is omitted because the wordmark is always sized relative to the mark cap-height, not to an absolute value; and the ROND 100 roundness (font.roundness) cannot be expressed in the composite typography type, so apply it alongside this token."
+    }
+  },
+  "duration": {
+    "$description": "Timing values for panel and toast motion, in milliseconds. Each times a specific moment in the app.",
+    "toast-window": {
+      "$value": "2500ms",
+      "$type": "duration",
+      "$description": "How long the done/result toast stays on screen after a transcript lands before it begins to fade."
+    },
+    "cancel-tell": {
+      "$value": "1300ms",
+      "$type": "duration",
+      "$description": "How long the brief 'cancelled' acknowledgement shows when a dictation is aborted, so the cancel registers without lingering."
+    },
+    "toast-fade": {
+      "$value": "180ms",
+      "$type": "duration",
+      "$description": "The fade-out duration for the toast: short enough to feel crisp, long enough to avoid a hard cut."
+    }
+  },
+  "dimension": {
+    "$description": "Layout sizes and radii. Values are given in px per the DTCG dimension type, but the source unit is macOS points (pt): on macOS at 1x, 1pt = 1px, so these numbers are the SwiftUI point values used by the native panel. Read 'px' as 'pt' when implementing on macOS.",
+    "radius": {
+      "$description": "Corner radii for panel surfaces.",
+      "panel": {
+        "$value": "24px",
+        "$type": "dimension",
+        "$description": "Corner radius of the status panel window. Generous enough to read as a soft instrument floating on black."
+      },
+      "bar": {
+        "$value": "7px",
+        "$type": "dimension",
+        "$description": "Corner radius of the transcribing bar inside the panel. Smaller than the panel radius so the bar nests cleanly within it."
+      }
+    },
+    "panel": {
+      "$description": "Fixed panel geometry.",
+      "ring": {
+        "$value": "104px",
+        "$type": "dimension",
+        "$description": "Diameter of the circular dot-matrix ring, the fixed footprint that hosts the recording bloom, the transcribing bar, and the done fill inside the panel."
+      }
+    }
+  }
+}
